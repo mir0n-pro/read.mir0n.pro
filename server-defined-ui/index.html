@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server-defined UI is not a legend</title>
+<meta name="description" content="The form builders that scarred everyone were describing screens. Describe the entity instead, keep the vocabulary small enough to finish, and let a real application do the drawing.">
+<meta name="author" content="Yuri Miroshnikov">
+<link rel="canonical" href="https://read.mir0n.pro/server-defined-ui/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Server-defined UI is not a legend">
+<meta property="og:description" content="The form builders that scarred everyone were describing screens. Describe the entity instead, keep the vocabulary small enough to finish, and let a real application do the drawing.">
+<meta property="og:url" content="https://read.mir0n.pro/server-defined-ui/">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="site">
+<a class="wordmark" href="../">read.mir0n.pro</a>
+</header>
+<main>
+<h1>Server-defined UI is not a legend</h1>
+
+<p>Every developer over a certain age has a story about this. The form builder that handled eighty per cent of the screens and made the last twenty impossible. The XML that grew a scripting language inside it. The low-code tool that was wonderful until somebody asked for a layout it had no word for, and then was a prison. "The server decides the screen" is, for a lot of people, not an idea &mdash; it is a scar.</p>
+
+<p>So I am not going to argue that the scar is unearned. It is earned. I am going to argue about one distinction, because in my experience it is the whole difference between the thing that failed and the thing that works:</p>
+
+<blockquote><p><strong>The server describes the entity. It does not describe the screen.</strong></p></blockquote>
+
+<p>What travels is what a field <em>is</em>: its name, the kind of value it holds, the rule it must satisfy, its allowed values, its label, its hint, which tab it belongs on, its order, and who may edit it. What never travels is a widget, a layout, a stylesheet, a template or a behaviour.</p>
+
+<p>The client is not a renderer of instructions. It is a real application &mdash; in my case an Angular application with its own component library &mdash; that receives a description and decides how to draw it. That single line is why the last twenty per cent does not become impossible: anything the description cannot say, you write in code, in the client, like any other application. Nothing stands in the way.</p>
+
+<hr>
+
+<h2>What one field looks like</h2>
+
+<p>This is a real declaration, from the file that is running right now:</p>
+
+<pre><code class="lang-xml">&lt;field&gt;
+    &lt;name&gt;status&lt;/name&gt;
+    &lt;sort&gt;4&lt;/sort&gt;
+    &lt;label&gt;Status&lt;/label&gt;
+    &lt;type&gt;string&lt;/type&gt;
+    &lt;tooltip&gt;Account status&lt;/tooltip&gt;
+    &lt;listvalues&gt;
+        &lt;value&gt;O~Open&lt;/value&gt;
+        &lt;value&gt;L~Locked&lt;/value&gt;
+        &lt;value&gt;C~Closed&lt;/value&gt;
+    &lt;/listvalues&gt;
+    &lt;validation&gt;^(O|L|C)$&lt;/validation&gt;
+    &lt;nullable&gt;N&lt;/nullable&gt;
+    &lt;default&gt;O&lt;/default&gt;
+    &lt;readwrite&gt;3&lt;/readwrite&gt;
+    &lt;affects3&gt;Y&lt;/affects3&gt;
+&lt;/field&gt;</code></pre>
+
+<p>Read what it says and, more importantly, what it does not.</p>
+
+<p>It says the field is called <code>status</code>, that it is the fourth thing on its tab, that people see the word "Status", that its value is one of three codes, that a human should read those codes as Open, Locked and Closed, that it cannot be empty, that new accounts start Open, that it can be edited, and that changing it changes how the account looks in the tree.</p>
+
+<p>It does not say "drop-down". It does not say where on the screen. It does not say what the control looks like, what happens on hover, or what the dialog does when the value changes. Those are the application's business, and the application is written by developers in the usual way.</p>
+
+<figure class="pending">
+<p class="mark">Figure 1</p>
+<figcaption>the pair: this declaration on the left, the dialog it produced on the right</figcaption>
+</figure>
+
+<hr>
+
+<h2>What the browser does with it</h2>
+
+<p>The client holds no knowledge of any entity. Everything on the screen comes from one call that returns the dictionary:</p>
+
+<ul>
+<li><strong>Tabs</strong> &mdash; one per declared layer, in order, with the layer's title.</li>
+<li><strong>Field order</strong> &mdash; by <code>sort</code>, within the tab.</li>
+<li><strong>Labels and hints</strong> &mdash; from <code>label</code> and <code>tooltip</code>.</li>
+<li><strong>Editable or not</strong> &mdash; from <code>readwrite</code>; and a field marked <code>personal</code> is editable by a person on their <em>own</em> record even where it is read-only on someone else's.</li>
+<li><strong>Choices</strong> &mdash; a value list becomes a drop-down; the <code>code~Label</code> form shows the label and sends the code.</li>
+<li><strong>Empty values</strong> &mdash; a declared <code>nullmeaning</code> is shown instead of a blank, so a screen can say <code>[inherited]</code> rather than leaving a hole.</li>
+<li><strong>Checking before sending</strong> &mdash; the rule, the limit and the required flag are applied in the dialog. The server applies the same rules again on arrival; the browser copy only saves a round trip.</li>
+</ul>
+
+<p>Which produces the sentence that is the actual pay-off, and it is the reason to do any of this:</p>
+
+<blockquote><p><strong>Adding a field to an entity is a server-side change only. Nothing in the browser has to know it happened.</strong></p></blockquote>
+
+<figure class="pending">
+<p class="mark">Figure 2</p>
+<figcaption>a label changed in the declaration; the same screen before and after, no build, no release</figcaption>
+</figure>
+
+<hr>
+
+<h2>The vocabulary is small, and that is the point</h2>
+
+<p>Here is the whole thing, counted this week:</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th></th>
+<th></th>
+</tr></thead>
+<tbody>
+<tr><td>entity kinds declared</td><td><strong>16</strong></td></tr>
+<tr><td>field declarations</td><td><strong>134</strong></td></tr>
+<tr><td>tabs</td><td><strong>38</strong></td></tr>
+<tr><td>the file</td><td>one, 1,796 lines</td></tr>
+<tr><td>screens written for any of them</td><td><strong>none</strong></td></tr>
+</tbody></table></div>
+
+<p>The description vocabulary is fifteen elements &mdash; name, label, sort, type, tooltip, readwrite, nullable, default, validation, minmax, listvalues, format, nullmeaning, personal, affects3 &mdash; and the type list is twelve, from <code>string</code> and <code>date</code> through to a nested entity and a table that fills a tab.</p>
+
+<p><strong>That smallness is the design, not a limitation reached by accident.</strong> A vocabulary of fifteen elements can be held in one person's head, implemented completely, and finished. The builders that became prisons all had vocabularies that grew forever: every unsupported case added one more element, until the configuration language was a bad programming language and the escape hatch was the only part anyone used.</p>
+
+<p>The rule that keeps it small is the one at the top. Describe the entity; never the screen. Screens are infinitely various, so a language for screens has to grow without limit. Entities are not: a field has a type, a rule, a name and an audience, and that list stops.</p>
+
+<figure class="pending">
+<p class="mark">Figure 3</p>
+<figcaption>a nested entity: a person and an address drawn inside the parent's dialog, from their own declarations, with no screen written for the combination</figcaption>
+</figure>
+
+<figure class="pending">
+<p class="mark">Figure 4</p>
+<figcaption>past simple forms: the permission grid, a table filling a tab</figcaption>
+</figure>
+
+<hr>
+
+<h2>Where it earns its keep</h2>
+
+<p><strong>One description, obeyed everywhere.</strong> The server validates with the rule; the API exposes the field; the browser checks the same rule before sending. There is no second copy in the front end that can disagree, which is the usual place this kind of thing quietly breaks: the back end tightens a rule, the dialog does not hear about it, and the user gets an error the form said was fine.</p>
+
+<p><strong>The shared vocabulary cannot go stale</strong>, because it is not documentation. If the business calls it a Locked account, the file says <code>L~Locked</code>, and that is what appears on the screen &mdash; change the file and the screen changes. There is no wiki page to fall behind.</p>
+
+<p><strong>The same entity looks different to different people, with no code deciding that.</strong> A field marked <code>personal</code> is editable on your own record and read-only on someone else's. Nobody wrote an if.</p>
+
+<figure class="pending">
+<p class="mark">Figure 5</p>
+<figcaption>the same entity, two signed-in people: an administrator and a user lower down the tree. Same screen, different fields</figcaption>
+</figure>
+
+<hr>
+
+<h2>The honest half</h2>
+
+<p><strong>No compiler checks a declaration.</strong> This is the real cost, and it is the mirror image of the benefit. Rich types in code get you compile-time checking; a declaration gets you one description that the server, the API and the browser all obey and that changes without a front-end release. Those are different trades and I would not pretend the second dominates the first. A typo in a rule is found at run time.</p>
+
+<p><strong>It states nouns, not verbs.</strong> The dictionary is the language of the <em>data</em> &mdash; fields, values, rules. The language of the <em>actions</em> lives elsewhere, in the command surface. A genuinely complete shared language would cover both, and this one does not yet. It is the clearest place the idea could go further.</p>
+
+<p><strong>The kinds are a closed list in a shared file.</strong> For one product that is a strength: one authoritative place, no drift. For several teams with different vocabularies it becomes one file everybody edits, and that is a queue.</p>
+
+<p><strong>And <code>type</code> does carry a hint of shape.</strong> I said no presentation travels, and that is very nearly true, but <code>subentity</code>, <code>tablist</code> and a tab-filling table do say something about form as well as about value. The file is public, so anyone can check that in a minute &mdash; better that I say it than that somebody finds it.</p>
+
+<hr>
+
+<h2>Where this applies, and where it does not</h2>
+
+<p>It applies to software whose screens are entities with rules &mdash; backoffice systems, administrative tools, anything where a hundred and thirty fields need to be shown correctly, guarded correctly, and changed often. That is a great deal of business software, and it is where hand-written screens are mostly a transcription job that goes stale.</p>
+
+<p>It does not apply to a product whose interface <em>is</em> the product. If the screen is the thing being designed, describe nothing and write it. Nobody should be generating a landing page from a field dictionary.</p>
+
+<p>The legend is only half a legend. The tools that scarred everybody failed for a reason you can name: they tried to describe screens. Describe entities instead, keep the vocabulary small enough to finish, and let a real application do the drawing &mdash; and what you get is not a prison. It is a hundred and thirty-four fields, no screens, and a business language that cannot drift.</p>
+
+<hr>
+
+<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. The dictionary in this article is <a href="https://github.com/mir0n-pro/esquire.services/blob/develop/common/src/main/resources/esq-entity-dictionaries.xml"><code>esq-entity-dictionaries.xml</code></a>, and the design document beside it explains every element. Open any entity in the running deployment and the dialog you get was never written. The four repositories are public at <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release.</em></p>
+</main>
+<aside class="also">
+<h2>Also here</h2>
+<ul>
+<li><a href="../missing-filter/">A missing filter looks exactly like a correct query</a></li>
+<li><a href="../decomposition/">Decomposition is not microservices</a></li>
+<li><a href="../ddd-environment/">An environment for Domain-Driven Design</a></li>
+</ul>
+</aside>
+<footer>
+<p><a href="../">All articles</a> &middot; <a href="mailto:info@mir0n.pro">info@mir0n.pro</a> &middot; <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a></p>
+<p class="colophon">&copy; 2001, 2026 mir0n&amp;co</p>
+</footer>
+</body>
+</html>

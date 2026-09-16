@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A missing filter looks exactly like a correct query</title>
+<meta name="description" content="Seven codebases that scope permissions by hierarchy. In three of them the scope can be forgotten, and a query missing it looks like a correct query. Including the one I found in my own.">
+<meta name="author" content="Yuri Miroshnikov">
+<link rel="canonical" href="https://read.mir0n.pro/missing-filter/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A missing filter looks exactly like a correct query">
+<meta property="og:description" content="Seven codebases that scope permissions by hierarchy. In three of them the scope can be forgotten, and a query missing it looks like a correct query. Including the one I found in my own.">
+<meta property="og:url" content="https://read.mir0n.pro/missing-filter/">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="site">
+<a class="wordmark" href="../">read.mir0n.pro</a>
+</header>
+<main>
+<h1>A missing filter looks exactly like a correct query</h1>
+
+<p>Most business software answers the same question a few thousand times a day: which rows is this person allowed to see? In a lot of systems the answer is positional &mdash; you see your branch, your region, your subtree of the organisation. The question is settled, the model is agreed, everybody knows the rule.</p>
+
+<p>Then it comes down to a <code>WHERE</code> clause. And a <code>WHERE</code> clause that is not there looks like nothing at all.</p>
+
+<pre><code class="lang-java">// written when the feature was designed, reviewed carefully
+List&lt;Loan&gt; findForOffice(String officePrefix, String status) {
+    // ... WHERE o.hierarchy LIKE :officePrefix AND l.status = :status
+}
+
+// added eight months later, for a dashboard, by someone in a hurry
+List&lt;Loan&gt; findByStatus(String status) {
+    // ... WHERE l.status = :status
+}</code></pre>
+
+<p>The second method compiles. It passes review &mdash; there is nothing in it to object to. It has a test, and the test passes, because the test data belongs to the test user. Static analysis has no opinion: Checkstyle, SpotBugs, Error Prone and Sonar all see a perfectly ordinary query. It goes to production and returns other people's rows to whoever calls that dashboard.</p>
+
+<p>This is not a hypothetical failure mode. It is the normal one. <strong>A missing authorization filter has no shape</strong> &mdash; it is not a null check that was skipped or an exception that was swallowed, both of which a tool can look for. It is the absence of a clause that a tool has no way to know should be present.</p>
+
+<p>I spent a few weeks last month reading open-source projects that all scope authorization by hierarchy, because I have been building one for a while and wanted to know what everyone else had settled on. The useful result was not the model. Everyone has more or less the same model. The useful result was that <strong>half of them can forget, and half of them cannot</strong>, and the difference has a pattern.</p>
+
+<hr>
+
+<h2>Seven projects, one question</h2>
+
+<p>The question I asked each codebase: <em>if I add a new query tomorrow and do not think about visibility, what happens?</em></p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>Project</th>
+<th>How visibility is enforced</th>
+<th>Can a developer forget?</th>
+</tr></thead>
+<tbody>
+<tr><td>Apache Fineract</td><td><code>validateAccessRights</code> at three call sites, plus roughly fifty hand-written <code>hierarchy like ?</code> fragments</td><td><strong>Yes</strong></td></tr>
+<tr><td>OrgSec</td><td>a <code>PrivilegeChecker</code> that the developer injects and calls</td><td><strong>Yes</strong></td></tr>
+<tr><td>Sz-Admin</td><td><code>try (var ignored = new DataScopeSession(X.class))</code> opened per query</td><td><strong>Yes</strong></td></tr>
+<tr><td>AAuth (Laravel)</td><td>Eloquent global scopes, applied to every query on the model</td><td>No</td></tr>
+<tr><td>multi-tenant-access-management-platform</td><td>a Hibernate <code>@Filter</code> enabled at session level</td><td>No</td></tr>
+<tr><td>iam-zero-trust-reference</td><td>at the gateway, before any business logic runs</td><td>No</td></tr>
+<tr><td>Esquire (mine)</td><td>resolved in the data path from the entity's stored path</td><td>No</td></tr>
+</tbody></table></div>
+
+<p>Java, PHP, Python. Different decades, different sizes, one architecture question, and a clean split down the middle.</p>
+
+<p><strong>The three that made it structural each explain why, and they say the same thing.</strong> The clearest is from the multi-tenant access-management project's own design notes:</p>
+
+<blockquote><p>"Manually adding <code>WHERE org_id = ?</code> to every repository method depends entirely on developer discipline &mdash; it works until someone writes a new query and forgets the check, and that one missed call is a cross-tenant data leak... <strong>one enforcement point instead of one per method</strong>, and it can't be skipped by an oversight in a future endpoint."</p></blockquote>
+
+<p>Three independent projects, in three languages, reaching the same sentence is not a coincidence and it is not anybody's private taste. It is the finding.</p>
+
+<hr>
+
+<h2>The split is not about care</h2>
+
+<p>The obvious reading is that some teams are careful and some are not. That reading is wrong, and the actual pattern is more interesting.</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>Side</th>
+<th>Which</th>
+<th>What they are</th>
+</tr></thead>
+<tbody>
+<tr><td>Can be forgotten</td><td>Fineract, OrgSec, Sz-Admin</td><td>products and libraries carrying a decade of real feature load</td></tr>
+<tr><td>Cannot be forgotten</td><td>AAuth, mtamp, iam-zero-trust-reference</td><td>a focused package, and two projects that exist to <em>demonstrate</em> correct patterns</td></tr>
+</tbody></table></div>
+
+<p>Apache Fineract runs core banking for real institutions. It is not a careless codebase; it is a codebase with an enormous feature surface, and its fifty hand-written hierarchy fragments got there one reasonable decision at a time. Sz-Admin <em>documents</em> its scoping session as a known pitfall &mdash; they know, they wrote it down, and it is still per-query, because that is what fits a system with that much else going on.</p>
+
+<p><strong>Enforcement does not collapse. It erodes &mdash; one reasonable exception at a time.</strong> A batch job has no interactive user, so it needs a path that skips the check. A reporting query spans branches by design. A migration touches everything. Each exception is correct on the day it is made, and each one turns a rule into a convention.</p>
+
+<p>Which is the whole argument for making it structural: <strong>discipline is exactly the thing that erodes under feature pressure.</strong> If the property has to survive ten years of features written by people who were not in the room when it was decided, it cannot be a thing to remember.</p>
+
+<p>And note who is on the good side of that table. Two of the three are reference implementations. They got this right partly because nothing else was competing for attention. That is not a criticism of them &mdash; it is a warning to anyone whose system is on that side today, mine included.</p>
+
+<hr>
+
+<h2>Four ways to make it structural, and what each one costs</h2>
+
+<p>The projects that cannot forget do it in four different places. They are not equivalent.</p>
+
+<p><strong>At the ORM model (AAuth: Eloquent global scopes).</strong> Every query on the model gets the scope, silently, including the ones nobody has written yet. Cheapest to adopt if you are already on that ORM. The cost is that it is invisible in the other direction too: a developer reading the query cannot see why it returns what it returns, and every framework with global scopes also ships a way to switch them off &mdash; which becomes the new thing to forget.</p>
+
+<p><strong>At the session (Hibernate <code>@Filter</code>, enabled once per request).</strong> One enforcement point, and it covers methods written in the future. The cost is that someone still has to enable it, so the forgettable step moves from every query to one place. That is an enormous improvement and it is not zero &mdash; an unfiltered session obtained on a background thread is back to square one.</p>
+
+<p><strong>At the gateway (iam-zero-trust-reference).</strong> Nothing reaches business logic without a decision. This is the strongest position for endpoint authorization and the correct place for it. The cost is that a gateway sees requests, not rows: it can decide whether you may call <code>/loans</code>, but the row filter still has to happen somewhere behind it, so this composes with one of the others rather than replacing it.</p>
+
+<p><strong>In the data (what I built).</strong> The position is a column on the row. A caller carries their position, and every read is bounded by it as a prefix, so "which rows" is answered by where the row sits in the tree rather than by a clause somebody remembered to add. The cost is that the tree has to be the truth: the path must be maintained on create, on move, and on every reparent &mdash; and if the path is wrong, the permissions are wrong, quietly. That is a real cost. It moves the risk from "did you remember the filter" to "is the path correct", and the second one is testable by a job that walks the tree and compares.</p>
+
+<p>There is no free option here. There is only a choice about <strong>where the mistake would have to be made</strong> &mdash; in one place you maintain deliberately, or in any of two hundred query methods.</p>
+
+<hr>
+
+<h2>The one my own system got wrong</h2>
+
+<p>I would not have believed this piece if somebody else wrote it without this section.</p>
+
+<p>My framework resolves visibility from a path column, and I have said for two years that it therefore cannot be forgotten. In August I read the whole thing back method by method, and found a read that was not bounded: the call that resolves an entity's path for a breadcrumb took an id and returned the path, full stop. Give it an id from outside your subtree and it answered.</p>
+
+<p>It was fixed on 2026-08-26 &mdash; a second, scoped lookup, and the caller-facing method now goes through it: <em>a path outside the caller root path no longer answers.</em> It is one line in a changelog and it had been sitting there for months.</p>
+
+<p>Three things about that, all of them the point of this article:</p>
+
+<ol>
+<li><strong>The compiler never mentioned it.</strong> Nothing did. The unscoped method was a perfectly ordinary method.</li>
+<li><strong>No test failed</strong>, because every test asked for a path it was entitled to see.</li>
+<li><strong>It was found by a person reading code with the question in mind</strong>, which is the only method I know that works, and it does not scale.</li>
+</ol>
+
+<p>So the honest version of my own claim is narrower than the one I used to make: <em>every caller-facing read takes the caller's position and filters on it, and there is no code path today that reads the tree without one.</em> That is checkable, and I checked it. It is not the same sentence as "the language prevents it", because it does not. The structural part is that the scope is a required argument of every read method rather than an optional call inside it &mdash; so forgetting it is not a silent omission, it is a method that does not compile without an argument you have to make up. That is a lower fence than a global scope. It is a much higher one than remembering.</p>
+
+<hr>
+
+<h2>When the hierarchy should not carry authority at all</h2>
+
+<p>The strongest argument against everything above comes from the most operationally experienced project I read. Athenz &mdash; Yahoo, LY Corporation, Vespa &mdash; has a dotted domain namespace that looks hierarchical, and refuses to make it authority-bearing:</p>
+
+<blockquote><p>"there is <strong>no inheritance or other relation</strong> between them other than that implied by their names... This allows all domains to be completely partitioned from each other, and the ownership of the entities defined within a domain is clear."</p></blockquote>
+
+<p>They considered inheritance and rejected it, because coupling creates action at a distance: granting a role high up silently changes what is visible far below, and ownership stops being local.</p>
+
+<p>They are right, for what they govern. Athenz governs <em>services</em>, and the relationship between <code>media.news.frontend</code> and <code>media.news</code> is an accident of naming. Inheriting authority through that is inheriting through noise.</p>
+
+<p>The distinction I would draw is this. <strong>Where the hierarchy is real, coupling removes a synchronisation problem. Where it is incidental, coupling invents one.</strong> A regional manager genuinely does have authority over their branches whether or not the software models it; if you refuse to model it, you will implement it anyway, by hand, in fifty places &mdash; which is where this article started. But if your "hierarchy" is a naming convention for services, do what Athenz did.</p>
+
+<hr>
+
+<h2>A second axis, briefly: where does the scope come from</h2>
+
+<p>Related, and worth a paragraph because it decides how your batch jobs behave.</p>
+
+<ul>
+<li><strong>Derived</strong> &mdash; the scope is read from stored user state on each request (<code>user.office_id</code>, a lookup). Fineract, Sz-Admin, mtamp.</li>
+<li><strong>Carried</strong> &mdash; the scope arrives in the request as a token claim. OrgSec, mine.</li>
+</ul>
+
+<p>The difference shows up where there is no interactive user. A derived system has nothing to derive from on a batch path, so the check either throws or &mdash; more often &mdash; passes for everything, and the batch path becomes the exception that erodes the rule. A carried system has the same shape on both paths, because the batch job carries a token like anything else.</p>
+
+<p>Carried costs you a synchronisation problem instead: whatever issues the token has to agree with whatever stores the org chart. Neither approach escapes it. Both move it somewhere you can see it.</p>
+
+<hr>
+
+<h2>What to check in your own codebase</h2>
+
+<p>Half an hour, and you will know which side of that table you are on:</p>
+
+<ol>
+<li><strong>Grep for the scoping clause</strong> &mdash; your <code>hierarchy like</code>, <code>org_id =</code>, <code>tenant_id =</code>. Count the call sites. If the number is large and hand-written, that number is also the number of places the next developer can miss.</li>
+<li><strong>Find the escape hatch.</strong> Every structural mechanism has one &mdash; <code>withoutGlobalScopes</code>, a disabled filter, an admin repository, a "system" user. Count its uses and read each one. This is where the erosion actually lives.</li>
+<li><strong>Follow a batch job.</strong> No interactive user: what is the scope, and who decided it?</li>
+<li><strong>Write the query a new hire would write.</strong> One method, no scoping, on your real schema. Does anything at all go red &mdash; compiler, test, linter, review checklist? If nothing does, you are relying on attention, and attention is not a control.</li>
+<li><strong>Ask what would have to be true for the scope to be wrong</strong> rather than missing. In a path-based system that is a stale path; in a claim-based system it is a stale token. Whatever the answer is, that is the thing that needs a reconciliation job, not a code review.</li>
+</ol>
+
+<hr>
+
+<h2>The system this came out of</h2>
+
+<p>For context, since the examples above are half from it.</p>
+
+<p><strong>Esquire</strong> is an application framework I have been building for backoffice systems &mdash; the kind where the org chart <em>is</em> the permission model. Every entity carries its position in the tree as a path; a signed-in person carries theirs as a token claim; a read is bounded by that path as a prefix. Roles say what you may do, position says over whom. It is Java and Spring Boot on the back, an Angular library on the front, Postgres or Oracle underneath, and identity synchronised to Keycloak.</p>
+
+<p>It runs as eight processes, or as five, or as four, from the same code &mdash; the composition is chosen at deployment, not at build time.</p>
+
+<p><strong>If you want to check the section above rather than take my word for it</strong>, both files are public:</p>
+
+<ul>
+<li><a href="https://github.com/mir0n-pro/esquire.services/blob/develop/bizTree/src/main/java/pro/mir0n/esquire/bizTree/cache/IBizTreeCacheRepository.java"><code>IBizTreeCacheRepository.java</code></a> &mdash; <code>findPath(String id)</code> is the one with no scope argument; <code>findPathScoped(id, rootPath)</code> is the one added beside it. Every other read on that interface takes the caller's position.</li>
+<li><a href="https://github.com/mir0n-pro/esquire.services/blob/develop/bizTree/src/main/java/pro/mir0n/esquire/bizTree/changes.txt"><code>bizTree/changes.txt</code></a> &mdash; the entry dated 08/26/2026, <em>"a path outside the caller root path no longer answers"</em>.</li>
+</ul>
+
+<p>What it does not do, since that list is more useful than the other one: no separate realms inside one deployment (it is one organisation tree, and a customer who needs isolation gets their own deployment); no per-subtree quotas; and the entity kinds are a closed set rather than an open type system. And, per the section above, its "cannot be forgotten" is a required-argument fence and a reconciliation job, not a compiler guarantee.</p>
+
+<p>I am not looking for users today. I wrote this because the thing I found while reading everyone else's code is more useful than anything I could say about my own: <strong>hierarchical scoping is not what distinguishes these systems. Whether the scope can be forgotten is.</strong> If your system is on the forgettable side of that table, you already know which query you are going to go and look at.</p>
+
+<hr>
+
+<p><em>The projects named here were read in August 2026, each against its own documentation and code.</em></p>
+
+<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. The four repositories are public at <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release. Signed in as <code>mainadmin</code> you see the whole tree; sign in lower down and the same screens return less, with no code anywhere deciding that.</em></p>
+</main>
+<aside class="also">
+<h2>Also here</h2>
+<ul>
+<li><a href="../decomposition/">Decomposition is not microservices</a></li>
+<li><a href="../ddd-environment/">An environment for Domain-Driven Design</a></li>
+<li><a href="../server-defined-ui/">Server-defined UI is not a legend</a></li>
+</ul>
+</aside>
+<footer>
+<p><a href="../">All articles</a> &middot; <a href="mailto:info@mir0n.pro">info@mir0n.pro</a> &middot; <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a></p>
+<p class="colophon">&copy; 2001, 2026 mir0n&amp;co</p>
+</footer>
+</body>
+</html>

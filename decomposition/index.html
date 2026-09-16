@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decomposition is not microservices</title>
+<meta name="description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
+<meta name="author" content="Yuri Miroshnikov">
+<link rel="canonical" href="https://read.mir0n.pro/decomposition/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Decomposition is not microservices">
+<meta property="og:description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
+<meta property="og:url" content="https://read.mir0n.pro/decomposition/">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="site">
+<a class="wordmark" href="../">read.mir0n.pro</a>
+</header>
+<main>
+<h1>Decomposition is not microservices</h1>
+
+<p>Two decisions got welded together some time around 2015, and most architecture arguments since have been about the weld rather than about either decision.</p>
+
+<p><strong>The first decision is decomposition.</strong> Where the seams in your system are. What talks to what, through which contract, and what each part is allowed to know about the others. It is a design question, it is answered when the system is designed, and it is expensive to change afterwards.</p>
+
+<p><strong>The second decision is packaging.</strong> How many programs those parts are shipped as. On how many machines, behind how many network hops, with how many deployment pipelines. It is an operational question, it is answered when you deploy, and it should be cheap to change.</p>
+
+<p>Microservices bind the second to the first. One module, one process, one repository, one pipeline &mdash; and then, quietly, the binding starts being treated as though it <em>were</em> the modularity. You hear it in the way people talk: "we broke the monolith into services" is said as if breaking it into <em>processes</em> is what created the boundaries. It is not. The boundaries are either in the design or they are not, and a network hop does not put them there.</p>
+
+<p>Which is why "monolith or microservices" is the wrong question. The right one is:</p>
+
+<blockquote><p><strong>Is there a seam?</strong></p></blockquote>
+
+<p>If there is, the number of processes is a knob you turn per environment. If there is not, no number of processes will save you &mdash; the field already has a name for that outcome, and it is not a compliment.</p>
+
+<p>I have been able to test this more literally than most, because the system I build runs as <strong>eight processes, or five, or four &mdash; from the same code, with the same settings, chosen at deployment.</strong> Not a migration. Not a branch. A composition choice made in a deployment file.</p>
+
+<p>Here is what turning that knob actually cost.</p>
+
+<hr>
+
+<h2>What the compositions are</h2>
+
+<p>Three shapes, all shipping the same modules:</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th></th>
+<th>classic</th>
+<th>compact</th>
+<th>super-compact</th>
+</tr></thead>
+<tbody>
+<tr><td>processes</td><td>8</td><td>5</td><td><strong>4</strong></td></tr>
+<tr><td>the entity, identity and sign-in services</td><td>three programs</td><td><strong>one program</strong></td><td>one program</td></tr>
+<tr><td>the gateway and the tree cache</td><td>two programs</td><td><strong>one program</strong></td><td>one program</td></tr>
+<tr><td>the audit writer</td><td>its own program</td><td>its own program</td><td><strong>none &mdash; database triggers</strong></td></tr>
+<tr><td>messaging buses defined</td><td>7</td><td>7</td><td><strong>2</strong></td></tr>
+<tr><td>broker destinations</td><td>4</td><td>2</td><td><strong>1</strong></td></tr>
+</tbody></table></div>
+
+<p>Nothing was rewritten to get from the first column to the third. The services were already talking through a defined seam &mdash; a messaging bus with typed events, and interfaces rather than reach-in calls &mdash; so composing them is a matter of which beans start in which process, and which transport a message takes when both ends happen to be in the same JVM.</p>
+
+<p>That last point is the whole mechanism. <strong>A seam does not stop being a seam when both sides are in one process.</strong> It just stops costing a network hop.</p>
+
+<hr>
+
+<h2>What it cost: 0.3%</h2>
+
+<p>The measurement rig rebuilds from nothing per cell &mdash; stack down, volumes dropped, database re-seeded, identity realm re-imported &mdash; then drives a 200-user load through the gateway until throughput stops climbing. Same box, same load profile, observability off:</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th></th>
+<th>plateau throughput</th>
+</tr></thead>
+<tbody>
+<tr><td>classic, eight processes</td><td><strong>1,228 requests/sec</strong></td></tr>
+<tr><td>compact, four processes</td><td><strong>1,232 requests/sec</strong></td></tr>
+</tbody></table></div>
+
+<p><strong>A difference of 0.3%, which is inside the noise of the rig.</strong> Half the programs, the same work done.</p>
+
+<p>Two honest notes about that number, because it is the one everything else leans on. The two figures come from two measurement runs five weeks apart on the same machine and the same protocol, not from one alternating A/B. And it is one box under one load profile &mdash; it says what composition costs <em>there</em>, not what it costs at a scale neither shape was measured at.</p>
+
+<p>What the split <em>was</em> costing, meanwhile, is easy to count: <strong>twelve service pods against six</strong>, at the same replica count, on the same cloud cluster.</p>
+
+<h2>The second replica goes further, not less far</h2>
+
+<p>The reflex objection is that fewer, larger processes must scale worse. On this rig they scaled better:</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th></th>
+<th>one replica</th>
+<th>two replicas</th>
+<th>gain</th>
+</tr></thead>
+<tbody>
+<tr><td>classic</td><td>1,228</td><td>1,883</td><td><strong>+53.3%</strong></td></tr>
+<tr><td>compact</td><td>1,232</td><td>2,054</td><td><strong>+66.7%</strong></td></tr>
+</tbody></table></div>
+
+<p>Fewer, larger processes leave more headroom per pod before the machine saturates, so the second copy has more of the machine left to use. Eight processes on one box spend a share of it on being eight processes.</p>
+
+<h2>And some costs disappear rather than move</h2>
+
+<p>The one that surprised me. With logging on, the compact shape does not merely relocate the logging cost &mdash; it removes part of it. <strong>Four processes log a request once where eight logged it at every hop.</strong> A request that crossed three services left three sets of entry and exit lines; merged, it leaves one.</p>
+
+<p>Tracing and metrics do not shrink the same way &mdash; they are per request and per span, and the request count did not change. But the log volume is a function of how many programs the request walked through, which is a packaging property, not a design one.</p>
+
+<p>For context on why that matters at all: on the cloud cluster, <strong>logging is 88% of the observability bill</strong> &mdash; and 79% in the classic shape measured earlier. The pillar that dominates the cost is the one the composition shrinks.</p>
+
+<hr>
+
+<h2>Where this does not generalise, and I would rather say it than have it found</h2>
+
+<p><strong>My services fold because they were never separate contexts.</strong> They speak one language about one data model and share a kernel of common code. They are a functional partition of <em>one</em> domain &mdash; which is exactly why they can be merged, and exactly why a team whose services are genuinely different domains, with different vocabularies and different owners, cannot do what this article describes. For them the process boundary is carrying an organisational boundary as well, and that is a real job the network hop is doing.</p>
+
+<p>So this is not "microservices were a mistake". It is narrower: <strong>if your services are one system split by function, the split into processes is a deployment decision and should be treated as one.</strong> A great many systems that call themselves microservices are exactly that, which is why the migration stories keep being written.</p>
+
+<p><strong>What you give up when you fold, stated plainly:</strong></p>
+
+<ul>
+<li><strong>Independent scaling.</strong> A merged process scales as one thing. If one part inside it is the hot one, you carry the others along with it.</li>
+<li><strong>Independent deploy.</strong> Same reason. And a shared kernel makes it worse: in one recent release, adding a single method to the messaging module forced <strong>every service image to be rebuilt</strong>, because each image bakes its own copy of that jar. That is a measured cost, not a theoretical one, and it is the classic warning about shared kernels arriving on schedule.</li>
+<li><strong>Blast radius.</strong> Four processes means a failure takes more with it than one of eight would.</li>
+</ul>
+
+<p>Those are real, and for some systems they are decisive. The argument is not that they never matter. It is that they are <strong>deployment trade-offs</strong>, and you should get to make them per environment rather than have them fixed in the architecture &mdash; which is precisely what happens when the two decisions are one decision.</p>
+
+<hr>
+
+<h2>What it looks like when they are separated</h2>
+
+<p>The four-process shape runs the small cloud demo on a single modest instance, because that is what fits there. The eight-process shape runs where the traffic pays for it. The code is identical. Nobody migrated anything, and no branch exists for "the small version".</p>
+
+<p>That is the actual claim, and it is smaller and more useful than "monoliths are back":</p>
+
+<blockquote><p><strong>Decompose because your design needs seams. Choose the process count because your deployment needs a shape. They are two decisions, and they should stay two.</strong></p></blockquote>
+
+<p>Design your seams as carefully as microservice advocates say you should. Then package them as loosely as a monolith advocate would. The reason those two positions have been fighting for a decade is that everybody kept assuming you could only have one.</p>
+
+<hr>
+
+<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. The measurements above come from its own load harness, and the matrix documents with every cell in them are in the repository: <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release.</em></p>
+</main>
+<aside class="also">
+<h2>Also here</h2>
+<ul>
+<li><a href="../missing-filter/">A missing filter looks exactly like a correct query</a></li>
+<li><a href="../ddd-environment/">An environment for Domain-Driven Design</a></li>
+<li><a href="../server-defined-ui/">Server-defined UI is not a legend</a></li>
+</ul>
+</aside>
+<footer>
+<p><a href="../">All articles</a> &middot; <a href="mailto:info@mir0n.pro">info@mir0n.pro</a> &middot; <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a></p>
+<p class="colophon">&copy; 2001, 2026 mir0n&amp;co</p>
+</footer>
+</body>
+</html>
