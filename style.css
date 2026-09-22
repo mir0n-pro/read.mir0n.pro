@@ -118,9 +118,11 @@ blockquote {
     padding: 0.9rem 1.1rem;
     background: var(--quote);
     border-left: 3px solid var(--accent);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-blockquote p { margin: 0; font-size: 1.05rem; }
+blockquote p, blockquote li { margin: 0; font-size: 0.94rem; line-height: 1.55; }
+blockquote li + li { margin-top: 0.35rem; }
 
 hr {
     border: 0;
@@ -159,9 +161,22 @@ pre code {
 table {
     border-collapse: collapse;
     width: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 0.88rem;
-    line-height: 1.45;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Numbered citations: the marker jumps to the reference, the reference is easy to find again. */
+sup a { text-decoration: none; }
+sup a:hover { text-decoration: underline; }
+p.reference { scroll-margin-top: 1.5rem; }
+p.reference:target { background: var(--mark, rgba(255, 221, 87, 0.28)); }
+
+/* A table with no header row is prose in rows -- the appendix -- so it keeps the reading face. */
+table.prose {
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.6;
 }
 
 th, td {

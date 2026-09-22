@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Decomposition is not microservices</title>
+<title>Decomposition is not microservices (draft)</title>
 <meta name="description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
 <meta name="author" content="Yuri Miroshnikov">
 <link rel="canonical" href="https://read.mir0n.pro/decomposition/">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Decomposition is not microservices">
+<meta property="og:title" content="Decomposition is not microservices (draft)">
 <meta property="og:description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
 <meta property="og:url" content="https://read.mir0n.pro/decomposition/">
 <link rel="stylesheet" href="../style.css">
@@ -18,7 +18,7 @@
 <a class="wordmark" href="../">read.mir0n.pro</a>
 </header>
 <main>
-<h1>Decomposition is not microservices</h1>
+<h1>Decomposition is not microservices (draft)</h1>
 
 <p>Two decisions got welded together some time around 2015, and most architecture arguments since have been about the weld rather than about either decision.</p>
 
@@ -119,7 +119,7 @@
 
 <h2>Where this does not generalise, and I would rather say it than have it found</h2>
 
-<p><strong>My services fold because they were never separate contexts.</strong> They speak one language about one data model and share a kernel of common code. They are a functional partition of <em>one</em> domain &mdash; which is exactly why they can be merged, and exactly why a team whose services are genuinely different domains, with different vocabularies and different owners, cannot do what this article describes. For them the process boundary is carrying an organisational boundary as well, and that is a real job the network hop is doing.</p>
+<p><strong>My services fold because they were never separate contexts.</strong> They speak one language about one data model and share a kernel of common code. They are a functional partition of <em>one</em> domain &mdash; which is exactly why they can be merged, and exactly why a team whose services are genuinely different domains, with different vocabularies and different owners, cannot do what this article describes. For them the process boundary is carrying an organizational boundary as well, and that is a real job the network hop is doing.</p>
 
 <p>So this is not "microservices were a mistake". It is narrower: <strong>if your services are one system split by function, the split into processes is a deployment decision and should be treated as one.</strong> A great many systems that call themselves microservices are exactly that, which is why the migration stories keep being written.</p>
 
@@ -147,7 +147,7 @@
 
 <hr>
 
-<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. The measurements above come from its own load harness, and the matrix documents with every cell in them are in the repository: <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release.</em></p>
+<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronized to Keycloak. The measurements above come from its own load harness, and the matrix documents with every cell in them are in the repository: <a href="https://github.com/mir0n-pro/esquire.services#readme">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree. The data is reseeded from time to time.</em></p>
 </main>
 <aside class="also">
 <h2>Also here</h2>

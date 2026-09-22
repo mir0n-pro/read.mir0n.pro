@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Server-defined UI is not a legend</title>
+<title>Server-defined UI is not a legend (draft)</title>
 <meta name="description" content="The form builders that scarred everyone were describing screens. Describe the entity instead, keep the vocabulary small enough to finish, and let a real application do the drawing.">
 <meta name="author" content="Yuri Miroshnikov">
 <link rel="canonical" href="https://read.mir0n.pro/server-defined-ui/">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Server-defined UI is not a legend">
+<meta property="og:title" content="Server-defined UI is not a legend (draft)">
 <meta property="og:description" content="The form builders that scarred everyone were describing screens. Describe the entity instead, keep the vocabulary small enough to finish, and let a real application do the drawing.">
 <meta property="og:url" content="https://read.mir0n.pro/server-defined-ui/">
 <link rel="stylesheet" href="../style.css">
@@ -18,7 +18,7 @@
 <a class="wordmark" href="../">read.mir0n.pro</a>
 </header>
 <main>
-<h1>Server-defined UI is not a legend</h1>
+<h1>Server-defined UI is not a legend (draft)</h1>
 
 <p>Every developer over a certain age has a story about this. The form builder that handled eighty per cent of the screens and made the last twenty impossible. The XML that grew a scripting language inside it. The low-code tool that was wonderful until somebody asked for a layout it had no word for, and then was a prison. "The server decides the screen" is, for a lot of people, not an idea &mdash; it is a scar.</p>
 
@@ -26,7 +26,7 @@
 
 <blockquote><p><strong>The server describes the entity. It does not describe the screen.</strong></p></blockquote>
 
-<p>What travels is what a field <em>is</em>: its name, the kind of value it holds, the rule it must satisfy, its allowed values, its label, its hint, which tab it belongs on, its order, and who may edit it. What never travels is a widget, a layout, a stylesheet, a template or a behaviour.</p>
+<p>What travels is what a field <em>is</em>: its name, the kind of value it holds, the rule it must satisfy, its allowed values, its label, its hint, which tab it belongs on, its order, and who may edit it. What never travels is a widget, a layout, a stylesheet, a template or a behavior.</p>
 
 <p>The client is not a renderer of instructions. It is a real application &mdash; in my case an Angular application with its own component library &mdash; that receives a description and decides how to draw it. That single line is why the last twenty per cent does not become impossible: anything the description cannot say, you write in code, in the client, like any other application. Nothing stands in the way.</p>
 
@@ -97,11 +97,7 @@
 <p>Here is the whole thing, counted this week:</p>
 
 <div class="table-wrap">
-<table>
-<thead><tr>
-<th></th>
-<th></th>
-</tr></thead>
+<table class="prose">
 <tbody>
 <tr><td>entity kinds declared</td><td><strong>16</strong></td></tr>
 <tr><td>field declarations</td><td><strong>134</strong></td></tr>
@@ -165,7 +161,7 @@
 
 <hr>
 
-<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. The dictionary in this article is <a href="https://github.com/mir0n-pro/esquire.services/blob/develop/common/src/main/resources/esq-entity-dictionaries.xml"><code>esq-entity-dictionaries.xml</code></a>, and the design document beside it explains every element. Open any entity in the running deployment and the dialog you get was never written. The four repositories are public at <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release.</em></p>
+<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronized to Keycloak. The dictionary in this article is <a href="https://github.com/mir0n-pro/esquire.services/blob/develop/common/src/main/resources/esq-entity-dictionaries.xml"><code>esq-entity-dictionaries.xml</code></a>, and the design document beside it explains every element. Open any entity in the running deployment and the dialog you get was never written. The codebase is public at <a href="https://github.com/mir0n-pro/esquire.services#readme">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree. The data is reseeded from time to time.</em></p>
 </main>
 <aside class="also">
 <h2>Also here</h2>

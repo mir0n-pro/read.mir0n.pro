@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>An environment for Domain-Driven Design</title>
-<meta name="description" content="DDD says get the generic subdomains cheaply. This is what it looks like when somebody hands them to you already joined -- measured against the method, including where it does not measure well.">
+<meta name="description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
 <meta name="author" content="Yuri Miroshnikov">
 <link rel="canonical" href="https://read.mir0n.pro/ddd-environment/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="An environment for Domain-Driven Design">
-<meta property="og:description" content="DDD says get the generic subdomains cheaply. This is what it looks like when somebody hands them to you already joined -- measured against the method, including where it does not measure well.">
+<meta property="og:description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
 <meta property="og:url" content="https://read.mir0n.pro/ddd-environment/">
 <link rel="stylesheet" href="../style.css">
 </head>
@@ -20,208 +20,174 @@
 <main>
 <h1>An environment for Domain-Driven Design</h1>
 
-<p>Domain-Driven Design makes one big claim: that a model built with the business, and written into the code rather than into a document beside it, keeps earning its place as the business changes. A good model lasts.</p>
+<p>Domain-Driven Design makes one claim. A model built with the business and written into the code — not into a separate document — remains useful as the business keeps changing. A good model lasts.</p>
 
-<p>It is the method's most important claim and the one nobody can show you, because almost every article about DDD is written from a project that is eighteen months old.</p>
+<p>The method tells you what to build. It does not tell you where to build it: identity, permissions, an audit trail, storage, messaging, screens — the environment you need before you can model anything.</p>
 
-<p>I can put a number against it. The entity model I am going to describe has been <strong>in production in a foreign-exchange trading business for twenty-five years, and it is running today</strong>. I wrote it from scratch starting in 2000; it went live in 2001 with two tiers and five hundred accounts, and it grew into a globally distributed platform carrying millions of accounts. In those years the storage engine was replaced, the architecture generation was replaced twice, the regulatory surface changed, and the company changed its brand. The way entities are structured and positioned did not change.</p>
-
-<p>Two things that number is not. It is not this code: the framework in this article is a <strong>new implementation</strong> of that model, written recently in Java, Spring Boot and Angular. And it is not a customer story &mdash; that business does not run this software. What has the twenty-five-year record is the <em>idea</em>, and the record is my own work, which is the only reason I can write about it at all.</p>
-
-<p>So this article is about what that model turned into, measured honestly against DDD &mdash; including the parts where it does not measure well.</p>
-
-<p>The short version:</p>
-
-<blockquote><p><strong>DDD tells you what to build. Esquire is where you build it.</strong></p></blockquote>
-
-<p>Not a DDD framework. An environment for one.</p>
+<p>DDD cannot run on air. Esquire is the ground: an application framework for backoffice systems — not a DDD framework, but an environment for one.</p>
 
 <hr>
 
-<h2>What DDD actually asks of you</h2>
+<h2>Back to theory: what DDD asks of you</h2>
 
-<p>Briefly, for readers who do not practise it, because the rest of this depends on it.</p>
+<p>DDD's premise: in software with complex business rules, <strong>the hard part is not the technology. It is understanding the business.</strong> You build a model of the business with the people who know it. You name everything in one shared language. You write that model into the code. The names in the code are the names the business uses. When the business renames something, you rename it in the code that day.</p>
 
-<p>DDD's premise is that in software with complicated business rules, <strong>the hard part is not the technology &mdash; it is understanding the business.</strong> So you build a model of the business together with the people who know it, you name everything in one shared language, and you write that model straight into the code. The names in the code are the names the business uses. When the business renames something, you rename it in the code that day.</p>
+<p>The method has two halves. The <strong>strategic</strong> half concerns boundaries and language: where one model ends, where another begins, and how the two communicate. The <strong>tactical</strong> half is the pattern catalog: entities, value objects, aggregates, repositories, factories, domain services, and domain events. The tactical half is the best known. A project can follow every pattern in it and still have no model at all. Most DDD failures happen this way.</p>
 
-<p>It has two halves. The <strong>strategic</strong> half is about boundaries and language &mdash; where one model ends and another begins, and how the two talk. The <strong>tactical</strong> half is the pattern catalogue: entities, value objects, aggregates, repositories, factories, domain services, domain events. The tactical half is the famous one, and a project can follow every pattern in it and still have no model at all. That is the usual way DDD fails.</p>
+<p>It also imposes limits.</p>
 
-<p>And it forces real limits, which is the part usually left out of articles like this one:</p>
+<blockquote><p><strong>DDD method limits</strong></p><ol><li>No single company-wide data model. A bounded context is <em>"a description of a boundary (typically a subsystem, or the work of a particular team) within which a particular model is defined and applicable"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>, so each context keeps its own "Customer", and the duplication is deliberate.</li><li>The aggregate is a consistency boundary: <em>"Within an aggregate boundary, apply consistency rules synchronously. Across boundaries, handle updates asynchronously"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>. The working rules are <em>Reference Other Aggregates By Identity</em> and <em>Use Eventual Consistency Outside the Boundary</em>&nbsp;<sup><a href="#ref5">[5]</a></sup>.</li><li><em>Design Small Aggregates</em>&nbsp;<sup><a href="#ref5">[5]</a></sup>, or they become a lock everybody waits on.</li><li>The model must not know about storage. No ORM detail, no SQL inside the business rules.</li><li>Behavior lives with the data. Push it all into services and you get the anemic domain model&nbsp;<sup><a href="#ref3">[3]</a></sup>.</li><li>Language discipline is permanent: one language <em>"used by all team members within a bounded context"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>.</li><li>Not every part deserves it: <em>"not all parts of the design are going to be equally refined. Priorities must be set"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>. Sophisticated models <em>"seldom turn out useful except when developed through an iterative process of refactoring, including close involvement of the domain experts"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>.</li><li>It needs a business expert available continuously. Without one, you get the team's jargon.</li></ol></blockquote>
 
-<ol>
-<li><strong>No single company-wide data model.</strong> Each context keeps its own "Customer", and the duplication is deliberate.</li>
-<li><strong>The aggregate is a consistency boundary</strong>, and the rules are hard: reference other aggregates by id only, change one aggregate per transaction, and anything that crosses aggregates is eventually consistent.</li>
-<li><strong>Aggregates stay small</strong>, or they become a lock everybody waits on.</li>
-<li><strong>The model must not know about storage</strong> &mdash; no ORM detail, no SQL inside the business rules.</li>
-<li><strong>Behaviour lives with the data.</strong> Push it all into services and you get the anemic model DDD names as the failure.</li>
-<li><strong>Language discipline is permanent.</strong></li>
-<li><strong>It is expensive, and it only pays on the core domain.</strong> Applying the whole catalogue to CRUD is the most common way DDD is misused.</li>
-<li><strong>It needs a business expert available continuously.</strong> Without one you get folklore.</li>
-</ol>
-
-<p>Item 7 is where this article starts.</p>
+<p>Those limits have a price. The most expensive is this: everything outside the core domain still has to be built, and most of it earns nothing. The following answers that — the generic subdomains, how an entity is declared, the visibility constraint, where the core domain goes, and what else the environment covers.</p>
 
 <hr>
 
-<h2>One: it is the part of DDD you are told not to build</h2>
+<h2>The generic subdomains are already built</h2>
 
-<p>Evans' advice about your system's outskirts is unambiguous: find the <strong>core domain</strong>, put your best people on it, and get the <strong>generic subdomains</strong> as cheaply as you can. A generic subdomain is a part every business needs and no business competes on.</p>
+<p>A <strong>generic subdomain</strong> is a part every business needs and no business competes on.</p>
 
-<p>Look at what that covers in a real backoffice system. Identity and sign-in. Permissions. The audit trail. Storage. The messaging between services. Metrics, logs and traces. Every one of those is a generic subdomain in DDD's own vocabulary, and every one of them is where projects actually spend their first year.</p>
+<blockquote><p>The advice about everything that is not the core is blunt: <em>"Identify cohesive subdomains that are not the motivation for your project... give their continuing development lower priority than the core domain, and avoid assigning your core developers to the tasks... Also consider off-the-shelf solutions or published models for these generic subdomains"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>.</p></blockquote>
 
-<p>Esquire is those, already built and already joined to each other: a Keycloak-backed identity flow with the user directory kept in step, permissions resolved from the organisation tree, an audit trail on every write, a messaging bus with pluggable transports, and an observability stack that can be switched on for a while and switched off again.</p>
+<p>Count the subdomains in a business system: identity and sign-in, permissions, the audit trail, storage, messaging between services, metrics, logs, traces. That is what the first year of development is spent on.</p>
 
-<p>So the framework's motto &mdash; <em>nothing else is left to write</em> &mdash; is a DDD statement that avoids the vocabulary: <strong>only the core domain is left to write.</strong></p>
+<p>Esquire supplies those parts already built and connected: a) A Keycloak-backed identity flow that keeps the user directory in sync. b) Permissions resolved from the organization tree. c) An audit trail for every write. d) A messaging bus with pluggable transports. e) An observability stack that can be enabled or disabled. So, the motto — <em>business logic and nothing else is left to write</em> — in DDD language: <strong>once the generic subdomains are off-the-shelf, what is left is the distilled core, where the deep model and the supple design still have to be found.</strong></p>
 
-<p>That is the first move, and on its own it is only half true. A framework that filled the generic subdomains and nothing else would be a collection of libraries with a shared build.</p>
+<h2>How an entity is declared</h2>
 
-<h2>Two: and it sets how an entity is declared</h2>
-
-<p>The second move is the one that makes it a framework rather than a library set, and it is the part DDD has no name for.</p>
-
-<p>In Esquire an entity <strong>declares itself</strong>, once, across five different things at the same time:</p>
+<p>DDD wants one language, used by everyone, written down in one place. In Esquire, an entity <strong>declares itself</strong> once, across five things at the same time:</p>
 
 <div class="table-wrap">
 <table>
 <thead><tr>
 <th>An entity declares</th>
 <th>Which means</th>
+<th>DDD patterns&nbsp;<sup><a href="#ref1">[1]</a></sup>&nbsp;<sup><a href="#ref2">[2]</a></sup></th>
 </tr></thead>
 <tbody>
-<tr><td>its <strong>data</strong></td><td>the fields it holds, per kind</td></tr>
-<tr><td>its <strong>permissions</strong></td><td>who may see it, who may change it, who may change it only on their own record</td></tr>
-<tr><td>its <strong>behaviour</strong></td><td>which commands it accepts, and which handler runs for each event</td></tr>
-<tr><td>its <strong>validation</strong></td><td>what a value must satisfy &mdash; required, range, allowed values</td></tr>
-<tr><td>its <strong>look and feel</strong></td><td>the tab it appears on, its order, its label, its hint, how a code is shown as words</td></tr>
+<tr><td>its <strong>data</strong></td><td>the fields it holds, per kind (the entity's type)</td><td>Entities</td></tr>
+<tr><td>its <strong>permissions</strong></td><td>who may see it, who may change it, who may change it only on their own record</td><td>—</td></tr>
+<tr><td>its <strong>behavior</strong></td><td>which commands it accepts, and which handler runs for each event</td><td>Domain Events</td></tr>
+<tr><td>its <strong>validation</strong></td><td>what a value must satisfy — required, range, allowed values</td><td>Specification</td></tr>
+<tr><td>its <strong>look and feel</strong></td><td>the tab it appears on, its order, its label, its hint, and how the value is rendered</td><td>—</td></tr>
 </tbody></table></div>
 
-<p>One statement. The server obeys it, the REST contract exposes it, and the browser receives it and builds the dialog from it &mdash; the browser holds no second copy of the rule.</p>
+<p>Permissions and the look and feel are outside DDD's concern — on purpose, so the model can stay clear of details. In practice, every piece of data must be restricted and displayed. Esquire declares both for each field in the entity dictionary, so the server and the frontend cannot disagree.</p>
 
-<p><strong>DDD has no pattern that spans those five.</strong> Its nearest ones each take a single column: Specification is the validation alone, Published Language is the contract alone, Entity is the data alone. And presentation is outside DDD's scope on purpose. So this is not a mapping exercise where the framework gets a DDD label pinned to each part; it is a concept the method does not carry.</p>
+<p>One entity dictionary, one statement: the server obeys, the REST contract exposes, the frontend builds the screen.</p>
 
-<p>Two consequences are worth more than the description.</p>
+<p>As a result, two gains for DDD:</p>
 
-<p><strong>The ubiquitous language gets a machine-readable home.</strong> In most projects the shared language lives on a wiki page that is stale within a month. Here it is the running configuration: the field's business label, its hint, its allowed values with their business names, the rule it must satisfy. It cannot go stale, because changing it changes the screen. And it is single-sourced across the whole stack, so the language cannot drift between the server and the browser &mdash; which is the usual place a ubiquitous language quietly breaks in half.</p>
+<p><strong>1) The ubiquitous language gets a machine-readable home.</strong> In most projects, the shared language lives on a wiki page that goes stale in a month. Here it is the dictionary: the business label, the hint, the allowed values with their business names, the rule a value must satisfy. It cannot go stale: an update changes the system.</p>
 
-<p><strong>And it is a third answer to the rich-versus-anemic argument.</strong> Fowler's split is between rules living on objects and rules living in services. Moving the <em>description</em> of an entity into data is neither: the rule is stated once, in a place both sides of the wire read. That is not better than rich types &mdash; see the honest half below, where a compiler cannot check a declaration &mdash; but it is a different axis, and the two combine rather than compete.</p>
+<p>A model change is one edit. Add a field, drop one, relabel it, widen its values, tighten its rule — the server, the API, and the screen follow. The server and the frontend speak the same "ubiquitous" language.</p>
 
-<h2>Three: it forces exactly one thing</h2>
+<p><strong>2) The rich-versus-anemic coin lands on its edge.</strong> Fowler&nbsp;<sup><a href="#ref3">[3]</a></sup> describes the two models: a rich one puts the rules on the objects; an anemic one, in services. The edge of the coin: the dictionary is different. It is metadata, a description of the entity's behavior, stated once, where the server and the frontend both read and follow.</p>
 
-<p>This is the sentence I would most like a DDD reader to take away.</p>
+<h2>The visibility constraint</h2>
 
-<p><strong>Esquire does not dictate your domain model.</strong> Entity structure, aggregation, your types, whether a rule lives on an object or in a procedure &mdash; all of it stays yours.</p>
+<p>Permissions — access rights — are outside DDD's concern. Visibility is part of them: every list must be limited to what a user may see. DDD has a term for a rule that must always hold — an "invariant" (for example, an account balance that never drops below zero). The visibility rule is one of those.</p>
 
-<p>The single thing it forces is that <strong>entities hang on the user access tree</strong>: every entity has a position, and that position is a stored path.</p>
+<blockquote><p>In DDD, invariants belong to the aggregate: <em>"Define properties and invariants for the aggregate as a whole and give enforcement responsibility to the root or some designated framework mechanism"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>.</p></blockquote>
 
-<p>One constraint, and here is what it buys.</p>
+<p>In Esquire, that rule lives on the entity tree. Your DDD model keeps the entity structure; that anchors visibility. Offices, users, accounts — each is a node, and each carries its path. A user sees their own subtree, nothing above it and nothing beside it. Roles decide what a user may do. Position decides over whom.</p>
 
-<p>"Every list must be limited to what this user may see" is an invariant DDD can state and cannot enforce. It depends on every developer remembering it in every query, forever &mdash; and <strong>a query missing the filter looks exactly like a correct query.</strong> Nothing goes red. Not the compiler, not the linter, not code review, because there is nothing there to review.</p>
+<p>In most systems, the rule lives in every developer's memory, one query at a time. In Esquire, the rule is one parameter. The caller brings a position; a scoped lookup returns only matching entities. The framework's own reads cannot skip it — without it, the code does not compile. Writes start with the same lookup: find the entity, then act on it by id. What the caller cannot find, the caller cannot change. The scoped lookup is the <em>designated framework mechanism</em>.</p>
 
-<p>In Esquire visibility is resolved from the caller's position in the tree, on every read, because the position is a column on the row and the caller carries theirs. There is no filter to forget, because there is no filter to add.</p>
+<p>I compared how open-source projects enforce visibility based on the org chart&nbsp;<sup><a href="#ref6">[6]</a></sup>. Tree or flat, the model made no difference. What mattered was whether the visibility rule applies itself. No project checks that the rule is in place while the first models and queries are written — in DDD words, while the invariants are defined. That is modeling work, and it is done once.</p>
 
-<p>For a domain team that removes an entire class of rule from the model. Authorization stops being something the domain has to say, and becomes a property of where a thing sits.</p>
+<p>The model's structure, its <em>aggregates</em>, its types — all stay yours. <strong>One constraint: every entity has a position in the tree, stored as its path.</strong></p>
 
-<p>I did not arrive at that opinion on my own. Reading half a dozen open-source projects that scope authorization by hierarchy, the model turned out to be broadly the same everywhere &mdash; and the projects split cleanly into those where the scope can be forgotten and those where it cannot. The ones that made it structural all give the same reason, in their own words.</p>
+<h2>Where the core domain goes</h2>
 
-<h2>Four: and it does not hand you the tactical patterns</h2>
+<p>Your domain brings its own entity kinds, and they sit on the same tree as everything else. The dictionary declares their fields, their sub-entities, and the screens for the operations they support. Your service carries out those operations through the REST contract and the bus.</p>
 
-<p>The declaration is data, and the accounting workflow that ships with the framework is procedural. If you want rich types with the rules on them, write them behind the declaration. The framework does not do it for you and does not stand in the way.</p>
+<p>Esquire ships a domain implementation prototype: pacMan, a Primitive ACcount MANager. It is a full vertical slice — tables, service, REST, and screens in the same administrative tool — with three operations: deposit, withdrawal, transfer, and nothing else. It shows how a domain attaches. It is not your domain.</p>
 
-<p>That is the whole of the deal: <strong>an environment supplies the surroundings, never the domain code.</strong></p>
+<p>Your domain implementation can take any shape. It can be a suite of microservices or one solid monolith. The framework neither writes it nor limits it.</p>
 
-<hr>
+<blockquote><p>pacMan is deliberately simple and written procedurally: a transaction service reads the account via a scoped lookup, checks the rules, and writes — nothing else. The transfer mimics a saga with no recovery phase. The debit and credit legs are single operations, each atomic on its own account, with nothing synchronizing them. The debit goes first and carries every check. The credit follows and needs none: adding money breaks no rule — in the hope that nothing crashes on the wire.</p></blockquote>
 
-<h2>What else falls out, once the environment is there</h2>
+<p>The dictionary defines an entity; your domain code decides what happens to it. They meet on the tree. Most of what you bring to Esquire is definition, not code: the entity structure, the dictionary with its rules and behavior, the bus topology, the metrics you watch. The code is your domain logic, ordinary code in your own repository.</p>
 
-<p>These are not claims about DDD &mdash; they are the parts that happen to line up with it, and every row was checked against the code.</p>
-
-<div class="table-wrap">
-<table>
-<thead><tr>
-<th>DDD</th>
-<th>Esquire</th>
-</tr></thead>
-<tbody>
-<tr><td>Ubiquitous Language</td><td>the entity dictionary &mdash; names, labels, allowed values, rules, defaults, read by server and browser alike</td></tr>
-<tr><td>Entity</td><td>a node on the tree: kind plus id; identity survives every field change</td></tr>
-<tr><td>Aggregate</td><td>the entity with its sub-parts &mdash; person, addresses, custom parameters, children &mdash; loaded and saved as one</td></tr>
-<tr><td>Aggregate root</td><td>the tree node; kind plus id is the only handle the outside gets</td></tr>
-<tr><td>Aggregate version</td><td>the change number on the row, which decides whose change wins</td></tr>
-<tr><td>Repository</td><td>one self-contained SQL per method, no dynamic SQL, ORM types never in the service layer</td></tr>
-<tr><td>Domain event</td><td>every save publishes an entity broadcast on the bus</td></tr>
-<tr><td>Specification</td><td>the validation rules in the dictionary, applied on the server and sent to the browser</td></tr>
-<tr><td>CQRS read model</td><td>the tree cache, fed by events, rebuilt from the canonical tables</td></tr>
-<tr><td>Anticorruption layer</td><td>the service that sits between the Esquire model and Keycloak's</td></tr>
-<tr><td>Shared kernel</td><td>the common and messaging modules</td></tr>
-</tbody></table></div>
-
-<p>Three of those deserve a sentence more.</p>
-
-<p><strong>Domain events cost nothing to publish.</strong> In a normal project "publish a domain event" is a month of work &mdash; an outbox, a broker, ordering, retries, tracing. Here the bus is already there, with ordering rules, a change number to settle which change wins, and a trace that follows the message across the hop. A business operation publishes its event by being written.</p>
-
-<p><strong>The read model is not a cache somebody added for speed.</strong> It is the tree shaped the way it is traversed, fed continuously by entity events and rebuildable from the canonical tables, with a content checksum and a sweep that reloads and swaps on drift. Most teams arrive at CQRS after the read shape stops matching the write shape, and skip the rebuild path because it is the expensive part. Here the split is the starting position.</p>
-
-<p><strong>Aggregate boundaries are structural rather than agreed.</strong> In DDD you decide where an aggregate ends and then defend that line in review forever. Here ownership is the shape of the data: an entity has a parent, a path and children, and its sub-parts move with it.</p>
+<p>Esquire is not a low-code tool, not a library suite, and not a generator. <strong>It is the environment where your business logic stands.</strong></p>
 
 <hr>
 
-<h2>The honest half</h2>
+<h2>What else the environment covers</h2>
 
-<p>None of the above is believable without this section, and none of these is an accident.</p>
+<p>Many of Esquire's features map to DDD's <em>building blocks</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>:</p>
 
-<p><strong>The services are not bounded contexts.</strong> Everyone assumes many services means many contexts. These six do not: they speak one language about one tree and share a kernel. They are a <em>functional partition of one context</em>. The proof is that they can be folded together at will &mdash; three of them run as a single process in the compact deployment, and a fourth is carried next to the gateway. Contexts, by definition, cannot be merged like that.</p>
+<p><strong>Entity.</strong> A tree node, described in the dictionary — metadata, not a rich type, so no compiler checks it. A rich type gets you compile-time checking. A dictionary entry gets you one description that the server, the API, and the frontend all obey, and it changes without a code update.</p>
 
-<p>What does <strong>not</strong> follow is that Esquire hosts only one context. A tree with its own kinds and its own tools is a context, and a deployment carries as many trees as you like. The context map is drawn <em>between</em> trees, not around the framework &mdash; which is the same point as the spine: an environment does not occupy a cell on the map, the map is drawn inside it.</p>
+<p><strong>Domain event.</strong> In most projects, "publish a domain event" is a month of work: an outbox, a broker, ordering, retries, tracing. Here the bus is already in place, with ordering rules, a sequence number that determines which update event wins, and a trace that follows the message from one service to the next. All a business operation does is save the entity; the event goes out after the commit, and the bus does the rest.</p>
 
-<p><strong>The shared kernel is large, and the cost is measured rather than theoretical.</strong> DDD warns that a shared kernel must stay small, because a change to it is a change for everyone. Ours is not small. In the last release, adding one method to the messaging module forced every service image to be rebuilt, because each image bakes its own copy of that jar. That is the warning arriving on schedule.</p>
+<p><strong>Aggregate.</strong> An entity with its sub-parts — person, addresses, custom parameters, children — is loaded and saved as one, and a change number decides whose change wins. In DDD, you decide where an aggregate ends and defend that line in every review. On the tree, the boundary is structural: an entity has a parent, a path, and children, and its sub-parts move with it. Your own aggregates are still yours to define.</p>
 
-<p><strong>The declaration is data, so no compiler checks it.</strong> That is the real cost of the five-column declaration described above. A rich type gets you compile-time checking of the rules; a dictionary entry gets you one description that the server, the API and the browser all obey, changeable without a browser release. Those are different trades, and I would not pretend the second dominates the first.</p>
+<p><strong>Aggregate root.</strong> The tree node. Kind plus id is the only handle the outside gets.</p>
 
-<p><strong>The shipped accounting workflow is procedural, with anemic entities</strong> &mdash; a processor reads both accounts, checks the rules, writes both legs. Say whose choice that is: that workflow is the <em>domain adapter</em>, a small worked example plugged into the seam to show how a domain attaches. It is the part a team replaces, and every observation about how it is written describes it and not the framework. In fairness it is also defensible in DDD's own vocabulary &mdash; behaviour that belongs to no single entity is a Domain Service, and a two-legged transfer is the textbook case.</p>
+<p><strong>Repository.</strong> One self-contained SQL per method, no dynamic SQL, ORM types never in the service layer.</p>
 
-<p><strong>It writes both legs in one transaction</strong>, where strict DDD would make the second leg an eventually-consistent reaction to an event, because it is a second aggregate. That workflow chose immediate consistency, which is what accounting expects. The bus is right there for a domain that prefers the strict rule.</p>
+<p><strong>Shared kernel.</strong> The common and messaging modules. Esquire is shared code. Like any framework or library, it is not part of your core domain, and it sits inside every service.</p>
 
-<p><strong>The dictionary covers nouns, not verbs.</strong> It states the language of the data &mdash; fields, values, rules. The language of the actions lives in the command surface and the operation codes. A ubiquitous language covers both, and this is the clearest place the framework could go further.</p>
+<blockquote><p>Evans's advice for what is shared: <em>"Keep this kernel small"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>. In practice, shared code grows: a new Spring Boot version can break every service that uses it. Esquire is no different: adding one method to its messaging module forced every service image to be rebuilt.</p></blockquote>
 
-<p><strong>And adopting an environment costs more than calling a library.</strong> The tree, the kinds, the dictionary and the bus arrive as a set. Leaving is not a small job. That is the honest price of everything in the first half of this article, and any version of this piece that leaves it out is selling something.</p>
+<p><strong>CQRS read model&nbsp;<sup><a href="#ref4">[4]</a></sup>.</strong> The split between reads and writes is the baseline position. It is not a cache added only for speed. It is the tree, shaped for the way it is traversed, loaded from canonical tables, fed by entity events, and rebuilt from the source in case of drift.</p>
 
-<p>It is also not a low-code tool and not a generator. Real Java, written by developers, in their own modules.</p>
+<p><strong>DDD draws the blueprint; Esquire has parts built.</strong></p>
 
 <hr>
 
-<h2>The neighbours</h2>
+<h2>The neighbors</h2>
 
-<p>There are tools that carry the label "DDD framework", and it would be poor form to write all this while implying the field is empty. What they supply falls into three kinds:</p>
+<p>Tools labeled "DDD framework" exist. What they supply falls into three groups:</p>
 
 <ul>
-<li><strong>The machinery the tactical patterns need</strong> &mdash; aggregate loading and versioning, command and event dispatch, an event store, sagas, projections. Genuinely hard, genuinely reusable.</li>
-<li><strong>The vocabulary made executable</strong> &mdash; types and annotations named after the patterns, so the model's structure is visible to tooling instead of living in a reviewer's head.</li>
-<li><strong>Enforcement of what a team otherwise holds by discipline</strong> &mdash; no object references across aggregates, module boundaries a build fails on.</li>
+<li><strong>The machinery the tactical patterns need</strong> — aggregate loading and versioning, command and event dispatch, an event store, sagas, projections. Hard to build, and worth reusing.</li>
+<li><strong>The vocabulary made executable</strong> — types and annotations named after the patterns, so the model's structure is visible to tooling, not only to a reviewer.</li>
+<li><strong>Enforcement of what a team otherwise holds by discipline</strong> — an aggregate that can only hold another's identity&nbsp;<sup><a href="#ref5">[5]</a></sup>, and a build that fails when a module reaches across its boundary.</li>
 </ul>
 
-<p>All three sit <strong>inside</strong> the domain. Esquire sits <strong>around</strong> it: identity, permissions, audit, messaging, storage, the screen. Different slots, and in principle they compose &mdash; aggregates from such a framework could be the implementation behind an Esquire entity declaration, because the declaration constrains how an entity is <em>described</em>, not how it is <em>modelled</em>.</p>
+<p>Each one makes life easier for a team practicing DDD; each implements a building block or two.</p>
 
-<p>Which is also why I will not accept the label for this:</p>
+<p>All three sit <strong>inside</strong> the domain implementation. Esquire sits <strong>around</strong> it: identity, permissions, audit, messaging, storage, and the screen.</p>
 
-<blockquote><p><strong>A framework can support DDD. It cannot do DDD.</strong></p></blockquote>
-
-<p>The design is finding the model with the business, naming it, and deciding where the boundaries fall. That is work done with people. Anything claiming otherwise is selling the mechanics under the name of the method.</p>
+<p><strong>A framework can support DDD. It cannot do DDD.</strong></p>
 
 <hr>
 
-<h2>What a DDD practitioner actually gets</h2>
+<h2>What a DDD practitioner gets</h2>
 
-<p>You keep your model and your patterns. You keep your aggregates, your language, your context boundaries &mdash; Esquire does not find those for you, and no framework does; deciding where one context ends is work done with the business, and booking that as a framework's limitation would be dishonest.</p>
+<p>You keep your model and your patterns: your aggregates, your language, your context boundaries.</p>
 
-<p>What you put down is identity, permissions, audit, messaging, storage and the plumbing between them.</p>
+<p>Identity, permissions, audit, messaging, and storage come built and connected.</p>
 
-<p>What you gain, beyond the time, is one invariant you can no longer forget.</p>
+<p>A model change is one edit: the server, the API, and the screen follow.</p>
 
-<p>And if the twenty-five years at the top is worth anything to you, it is worth this much: the thing that survived all that replacement underneath was not the pattern catalogue. It was the decision about how entities are structured and where they sit. That is a strategic-half result, not a tactical one, which is the part of DDD that fewer people practise and the part that turned out to matter.</p>
+<p>Visibility is a position, carried into every read.</p>
+
+<p>The DDD building blocks are working: events, aggregates, repositories, the read model.</p>
+
+<p><strong>DDD tells you what to build. Esquire is where you build it.</strong></p>
 
 <hr>
 
-<p><em>The system is Esquire, a framework for backoffice systems &mdash; Java and Spring Boot, an Angular front end, Postgres or Oracle, identity synchronised to Keycloak. It runs as eight processes, or five, or four, from the same code &mdash; the composition is chosen at deployment. The four repositories are public at <a href="https://github.com/mir0n-pro">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> &mdash; sign in with <code>mainadmin</code> / <code>q</code>, it is a demonstration tree and it is seeded fresh with each release.</em></p>
+<p><strong>References</strong></p>
+
+<p class="reference" id="ref1">[1] Eric Evans, <a href="https://www.informit.com/store/domain-driven-design-tackling-complexity-in-the-heart-9780321125217"><em>Domain-Driven Design: Tackling Complexity in the Heart of Software</em></a>, Addison-Wesley, 2003 — chapter 9, the Specification pattern.</p>
+
+<p class="reference" id="ref2">[2] Eric Evans, <a href="https://www.domainlanguage.com/ddd/reference/"><em>Domain-Driven Design Reference</em></a>, 2015 — definitions and summaries of the DDD patterns.</p>
+
+<p class="reference" id="ref3">[3] Martin Fowler, <a href="https://martinfowler.com/bliki/AnemicDomainModel.html"><em>AnemicDomainModel</em></a>, 2003 — why a model with no behavior fails.</p>
+
+<p class="reference" id="ref4">[4] Martin Fowler, <a href="https://martinfowler.com/bliki/CQRS.html"><em>CQRS</em></a>, 2011 — Command Query Responsibility Segregation: reads split from writes.</p>
+
+<p class="reference" id="ref5">[5] Vaughn Vernon, <a href="https://www.dddcommunity.org/library/vernon_2011/"><em>Effective Aggregate Design</em></a>, 2011 — four rules for sizing and linking aggregates.</p>
+
+<p class="reference" id="ref6">[6] <a href="https://read.mir0n.pro/missing-filter/"><em>A missing filter looks exactly like a correct query</em></a> — seven projects that scope visibility by the org chart.</p>
+
+<hr>
+
+<p><em>The system is Esquire, a framework for backoffice systems — Java and Spring Boot, an Angular frontend, Postgres or Oracle, identity synchronized to Keycloak. The codebase is public at <a href="https://github.com/mir0n-pro/esquire.services#readme">github.com/mir0n-pro</a>. A deployment is running at <a href="https://esquire.mir0n.pro">esquire.mir0n.pro</a> — sign in with <code>mainadmin</code> / <code>q</code>. It is a demonstration tree. The data is reseeded from time to time.</em></p>
 </main>
 <aside class="also">
 <h2>Also here</h2>

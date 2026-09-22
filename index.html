@@ -16,24 +16,26 @@
 <body>
 <main>
 <h1 class="wordmark">read.mir0n.pro</h1>
-<p>I am Yuri Miroshnikov,<br> founder and sole developer of <a href="https://esquire.mir0n.pro"><strong>Esquire Application Frameworks</strong></a> for backoffice systems &mdash; the kind where the org chart is the permission model. It is running, and every article here links into it.</p>
+<p>I am Yuri Miroshnikov,<br> founder and sole developer of <a href="https://esquire.mir0n.pro"><strong>Esquire Application Frameworks</strong></a> for backoffice systems. It is running, and every article here links into it.</p>
+
+<blockquote><p>The entity model behind it has been in production in a foreign-exchange trading business for twenty-five years. I wrote it from scratch in 2000, and it grew from two tiers and five hundred accounts into a globally distributed platform carrying millions. The storage engine was replaced, the architecture generation twice, the regulatory surface changed, the company changed its brand. The way entities are structured and positioned did not change. The screens were server-defined throughout, from a dictionary: first in PowerBuilder PFC, then MFC, then DevExpress, now Angular. Esquire is a new implementation of that model: the twenty-five years belong to the idea, not to this code.</p></blockquote>
 
 <p>On this page I write about the parts of the Esquire work that are arguments rather than features: what I found reading other people's code, what the measurements said, and where my own system does not do what I say it does.</p>
 <ul class="index">
 <li>
 <h2><a href="missing-filter/">A missing filter looks exactly like a correct query</a></h2>
-<p>Seven codebases that scope permissions by hierarchy. In three of them the scope can be forgotten, and a query missing it looks like a correct query. Including the one I found in my own.</p>
+<p>Seven codebases that scope permissions by hierarchy. In four of them the scope can be forgotten, and a query missing it looks like a correct query. Including the one I found in my own.</p>
 </li>
 <li>
-<h2><a href="decomposition/">Decomposition is not microservices</a></h2>
+<h2><a href="decomposition/">Decomposition is not microservices</a> (draft)</h2>
 <p>Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.</p>
 </li>
 <li>
 <h2><a href="ddd-environment/">An environment for Domain-Driven Design</a></h2>
-<p>DDD says get the generic subdomains cheaply. This is what it looks like when somebody hands them to you already joined &mdash; measured against the method, including where it does not measure well.</p>
+<p>DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined &mdash; against one constraint on your model: every entity has a position in the tree.</p>
 </li>
 <li>
-<h2><a href="server-defined-ui/">Server-defined UI is not a legend</a></h2>
+<h2><a href="server-defined-ui/">Server-defined UI is not a legend</a> (draft)</h2>
 <p>The form builders that scarred everyone were describing screens. Describe the entity instead, keep the vocabulary small enough to finish, and let a real application do the drawing.</p>
 </li>
 </ul>
