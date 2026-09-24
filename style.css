@@ -179,6 +179,20 @@ table.prose {
     line-height: 1.6;
 }
 
+/* A wide measurement table has short numeric columns and two long text ones. Let the header and the
+   first column wrap onto a second line rather than forcing the whole table into a scrollbar. */
+th {
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 7rem;
+}
+
+tbody td:first-child {
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 9rem;
+}
+
 th, td {
     text-align: left;
     vertical-align: top;
