@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Decomposition is not microservices (draft)</title>
-<meta name="description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
+<meta name="description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into five cost 0.3%.">
 <meta name="author" content="Yuri Miroshnikov">
 <link rel="canonical" href="https://read.mir0n.pro/decomposition/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Decomposition is not microservices (draft)">
-<meta property="og:description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into four cost 0.3%.">
+<meta property="og:description" content="Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into five cost 0.3%.">
 <meta property="og:url" content="https://read.mir0n.pro/decomposition/">
 <link rel="stylesheet" href="../style.css">
 </head>
@@ -20,29 +20,59 @@
 <main>
 <h1>Decomposition is not microservices (draft)</h1>
 
-<p>Two decisions got welded together some time around 2015, and most architecture arguments since have been about the weld rather than about either decision.</p>
+<p>Microservices were named in 2014: <em>"an approach to developing a single application as a suite of small services, each running in its own process"</em>&nbsp;<sup><a href="#ref1">[1]</a></sup>. The idea: decompose a monolith so it can be maintained, scaled, and kept running in parts.</p>
 
-<p><strong>The first decision is decomposition.</strong> Where the seams in your system are. What talks to what, through which contract, and what each part is allowed to know about the others. It is a design question, it is answered when the system is designed, and it is expensive to change afterwards.</p>
+<p>This definition ties two decisions together. And since then, most architectural debates have concentrated on the "weld" &mdash; rather than on either decision.</p>
 
-<p><strong>The second decision is packaging.</strong> How many programs those parts are shipped as. On how many machines, behind how many network hops, with how many deployment pipelines. It is an operational question, it is answered when you deploy, and it should be cheap to change.</p>
+<p><strong>The first decision is decomposition.</strong> Where the seams in your system are. What talks to what, through which contract, and what each part is allowed to know about the others. It is a design question; it is answered during the initial system development; and it is expensive to change afterward.</p>
 
-<p>Microservices bind the second to the first. One module, one process, one repository, one pipeline &mdash; and then, quietly, the binding starts being treated as though it <em>were</em> the modularity. You hear it in the way people talk: "we broke the monolith into services" is said as if breaking it into <em>processes</em> is what created the boundaries. It is not. The boundaries are either in the design or they are not, and a network hop does not put them there.</p>
+<p><strong>The second decision is packaging.</strong> Which parts share a program, and how many programs run, on how many machines, across how many network hops, through how many deployment pipelines? Those are operational questions; they are answered at deployment; and they should be cheap to change.</p>
 
-<p>Which is why "monolith or microservices" is the wrong question. The right one is:</p>
+<p>The pattern forces a single decision: a module is what gets deployed. Production has its own reasons to decide &mdash; the budget, the nodes, the latency it can accept. Nothing says where one decision ends and the other begins.</p>
 
-<blockquote><p><strong>Is there a seam?</strong></p></blockquote>
+<blockquote><p>Moving off the strict form is not a fringe position. Google surveyed its own infrastructure teams and found that the approach <em>"often backfires, introducing challenges that counteract the benefits the architecture tries to achieve"</em>; its answer is to write applications as logical monoliths and <em>"offload the decisions of how to distribute and run applications to an automated runtime"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>. Uber, at around 2,200 microservices, reorganized around <em>"collections of related microservices... We call these domains"</em>&nbsp;<sup><a href="#ref3">[3]</a></sup>.</p></blockquote>
 
-<p>If there is, the number of processes is a knob you turn per environment. If there is not, no number of processes will save you &mdash; the field already has a name for that outcome, and it is not a compliment.</p>
-
-<p>I have been able to test this more literally than most, because the system I build runs as <strong>eight processes, or five, or four &mdash; from the same code, with the same settings, chosen at deployment.</strong> Not a migration. Not a branch. A composition choice made in a deployment file.</p>
-
-<p>Here is what turning that knob actually cost.</p>
+<p>Decompose by design, then aggregate by deployment. A claim like this one requires proof.</p>
 
 <hr>
 
-<h2>What the compositions are</h2>
+<h2>The shape to start from</h2>
 
-<p>Three shapes, all shipping the same modules:</p>
+<p>The pattern splits a system <em>"around business capability"</em> rather than by technical layer&nbsp;<sup><a href="#ref1">[1]</a></sup>. Each service owns an area of the business, talks to the others over the network, and is deployed as its own program.</p>
+
+<p>The pattern treats business services, and only those. Isolating them leaves other kinds behind: gateways that convert protocols, apply the security stack, and route requests; adapters that speak external protocols &mdash; a broker, a database, or a vendor API. The host that serves a user interface &mdash; a web application, a web server, a Node process &mdash; counts the same way, as a service. There are Services and services, and both need the same treatment: design, code, build, deploy, monitor, maintain.</p>
+
+<p>Esquire, the framework powering this experiment, was split into <strong>eight programs: three business services and five on staff</strong>. The first three are an entity service, a credentials-and-roles service, and an accounting service. The staff: an asynchronous IAM adapter (keeping the user directory in sync), an audit writer, a gateway, a tree cache, and the host that serves the administrative interface. The seams between services were designed first: typed events on a messaging bus, interfaces rather than reach-in calls, no shared tables.</p>
+
+<figure>
+<img src="../img/component-model-eight.png" alt="the eight-program shape: the services, the buses between them, the broker destinations, and the two database instances behind them">
+<figcaption>Figure 1. the eight-program shape: the services, the buses between them, the broker destinations, and the two database instances behind them</figcaption>
+</figure>
+
+<blockquote><p>The drawing shows two database instances. That is a deployment choice, not a design one. The pattern says each service should <em>"manage its own database"</em>&nbsp;<sup><a href="#ref1">[1]</a></sup>. That is usually read as one database server per service. Strictly, it says: own the data. One service owns its tables, and nobody else touches them. Where those tables live &mdash; one database, a schema each, separate servers &mdash; is settled at deployment, by your DBA.</p><p>Separate a service's data physically, and you give up the foreign key, the join, one transaction across two tables. <em>"Distributed transactions are notoriously difficult to implement"</em>&nbsp;<sup><a href="#ref1">[1]</a></sup>. The work does not disappear &mdash; it should move into your code, where you reinvent what the database already has.</p></blockquote>
+
+<p>With redundancy, the number of processes doubles: on Kubernetes, that is sixteen pods. At least four nodes are required. Add an extra one for infrastructure (the database, broker, identity, and session store): <strong>five nodes in total</strong>.</p>
+
+<h2>What was merged, and what was not</h2>
+
+<p>Of the eight, two groups merge, and three programs stay as they are. That makes five.</p>
+
+<ul>
+<li><strong>The gateway and the tree cache become one.</strong> One task: answer a tree read as fast as possible. The two are a couple: the gateway routes the request, and the cache answers it. Merging them removes the wire and the hop between them. The trade-off is that the gateway stops being a thin front door. A real one is never quite stateless anyway &mdash; it caches tokens and sessions &mdash; but with the tree inside, it warms up before it can serve.</li>
+<li><strong>The entity service, the credentials service, and the IAM adapter become one.</strong> One task again: two business services working with entities, both wired to the same IAM adapter behind them. Merged, the adapter no longer needs its own process, and the two wires are replaced by an in-process queue.</li>
+<li><strong>The accounting service stays its own program.</strong> It is where the domain logic is applied. Any other domain could stand in its place: the same slot, a different business. It has its own development cycle, release pipeline, and workload.</li>
+<li><strong>The audit writer stays its own program.</strong> Its task is the durable record, it is off the request path, and it needs its own redundancy. Every service writes to it, so folding it means folding it into all of them: the end of the decomposition idea. It stays alone.</li>
+</ul>
+
+<ul>
+<li><strong>The interface host stays its own program.</strong> Its task is serving the browser, and it runs on a different runtime: Node, where everything else is Java. Nothing crosses that line.</li>
+</ul>
+
+<p><strong>Aggregation is not "merge everything that compiles".</strong> Merge the services that share a job, and leave alone the ones where merging would cost more than it saves.</p>
+
+<h2>The shape it lands on</h2>
+
+<p><strong>Five programs: two business services staffed by three.</strong> The entity service, the credentials service, and the IAM adapter in one. The gateway and the tree cache in another. The accounting service, the audit writer, and the interface host as they were. With redundancy, that is ten pods on three nodes, plus the one for infrastructure. <strong>Four nodes</strong>, against five for the unfolded classic shape.</p>
 
 <div class="table-wrap">
 <table>
@@ -50,24 +80,33 @@
 <th></th>
 <th>classic</th>
 <th>compact</th>
-<th>super-compact</th>
 </tr></thead>
 <tbody>
-<tr><td>processes</td><td>8</td><td>5</td><td><strong>4</strong></td></tr>
-<tr><td>the entity, identity and sign-in services</td><td>three programs</td><td><strong>one program</strong></td><td>one program</td></tr>
-<tr><td>the gateway and the tree cache</td><td>two programs</td><td><strong>one program</strong></td><td>one program</td></tr>
-<tr><td>the audit writer</td><td>its own program</td><td>its own program</td><td><strong>none &mdash; database triggers</strong></td></tr>
-<tr><td>messaging buses defined</td><td>7</td><td>7</td><td><strong>2</strong></td></tr>
-<tr><td>broker destinations</td><td>4</td><td>2</td><td><strong>1</strong></td></tr>
+<tr><td>the entity and credentials services, and the IAM adapter</td><td>three programs</td><td><strong>one program</strong></td></tr>
+<tr><td>the gateway and the tree cache</td><td>two programs</td><td><strong>one program</strong></td></tr>
+<tr><td>the accounting service</td><td>its own program</td><td>its own program</td></tr>
+<tr><td>the audit writer</td><td>its own program</td><td>its own program</td></tr>
+<tr><td>the interface host</td><td>its own program</td><td>its own program</td></tr>
+<tr><td>messaging buses defined</td><td>3</td><td><strong>2</strong></td></tr>
+<tr><td>broker destinations</td><td>4</td><td><strong>2</strong></td></tr>
 </tbody></table></div>
 
-<p>Nothing was rewritten to get from the first column to the third. The services were already talking through a defined seam &mdash; a messaging bus with typed events, and interfaces rather than reach-in calls &mdash; so composing them is a matter of which beans start in which process, and which transport a message takes when both ends happen to be in the same JVM.</p>
+<figure>
+<img src="../img/component-model-four.png" alt="the five-program shape, the same services inside fewer processes, and two buses remaining">
+<figcaption>Figure 2. the five-program shape, the same services inside fewer processes, and two buses remaining</figcaption>
+</figure>
 
-<p>That last point is the whole mechanism. <strong>A seam does not stop being a seam when both sides are in one process.</strong> It just stops costing a network hop.</p>
+<p>No service was rewritten to get from one column to the other. The compact shape has two wrappers, one per merged group. Each starts the parts it carries and owns the process. That is possible because a service's code ships with two entry points: 1) run as a standalone process, 2) the starting hook for a wrapper. The wrapped services are talking through a defined seam.</p>
+
+<blockquote><p>That is correct as it stands: "no service was rewritten". Instead, two wrappers were added, each written for one concrete grouping: merge these three, merge those two. The pattern behind them is the same in both: start the service's parts, the seam carries on inside the process, a message handler stays asynchronous. For a composition to be officially recognized as a deployment choice, the wrapper has to be generic: it takes its grouping from configuration, so that a new composition costs no coding effort. That is the finding this experiment leaves on the framework's backlog.</p></blockquote>
+
+<p>Each service keeps its own codebase and its own tables. The change is that they are deployed together instead of alone.</p>
+
+<p><strong>Merging does not change the seam; it changes the transport under it.</strong> What goes away is a network hop and a second copy of the application runtime stack: the JVM, the drivers, the connection pools, the framework layers.</p>
 
 <hr>
 
-<h2>What it cost: 0.3%</h2>
+<h2>What it cost, and what it bought</h2>
 
 <p>The measurement rig rebuilds from nothing per cell &mdash; stack down, volumes dropped, database re-seeded, identity realm re-imported &mdash; then drives a 200-user load through the gateway until throughput stops climbing. Same box, same load profile, observability off:</p>
 
@@ -78,19 +117,19 @@
 <th>plateau throughput</th>
 </tr></thead>
 <tbody>
-<tr><td>classic, eight processes</td><td><strong>1,228 requests/sec</strong></td></tr>
-<tr><td>compact, four processes</td><td><strong>1,232 requests/sec</strong></td></tr>
+<tr><td>eight programs</td><td><strong>1,228 requests/sec</strong></td></tr>
+<tr><td>five programs</td><td><strong>1,232 requests/sec</strong></td></tr>
 </tbody></table></div>
 
-<p><strong>A difference of 0.3%, which is inside the noise of the rig.</strong> Half the programs, the same work done.</p>
+<p><strong>A difference of 0.3%, which is inside the noise of the rig.</strong> Three programs fewer, the same work done.</p>
 
-<p>Two honest notes about that number, because it is the one everything else leans on. The two figures come from two measurement runs five weeks apart on the same machine and the same protocol, not from one alternating A/B. And it is one box under one load profile &mdash; it says what composition costs <em>there</em>, not what it costs at a scale neither shape was measured at.</p>
+<blockquote><p>Two honest notes about that number, because it is the one everything else leans on. The two figures come from two measurement runs five weeks apart on the same machine and the same protocol, not from one alternating A/B. And it is one box under one load profile &mdash; it says what composition costs <em>there</em>, not what it costs at a scale neither shape was measured at.</p></blockquote>
 
-<p>What the split <em>was</em> costing, meanwhile, is easy to count: <strong>twelve service pods against six</strong>, at the same replica count, on the same cloud cluster.</p>
+<p>Where it shows is the request an administrative interface makes most: navigation over the tree. That read is cheap in itself &mdash; two or three milliseconds of logic, served from the cache, no database work &mdash; and the gateway's own work is about two more. On the cloud cluster a warm read costs fifteen to thirty-five milliseconds of server time, so what remains after the gateway's own work and the service logic is the hop between them, across nodes. Folded, that hop is gone: the read is answered inside the process that received it.</p>
 
-<h2>The second replica goes further, not less far</h2>
+<p>What the split <em>was</em> costing is easier to see in the cloud. The budget there did not stretch to eight programs and a second copy of each. Folded, it stretches to <strong>two replicas of every program</strong>: the redundancy came out of the packaging decision, not out of a bigger bill.</p>
 
-<p>The reflex objection is that fewer, larger processes must scale worse. On this rig they scaled better:</p>
+<p><strong>The second replica goes further, not less far.</strong> The reflex objection is that fewer, larger processes must scale worse. On this rig they scaled better:</p>
 
 <div class="table-wrap">
 <table>
@@ -101,25 +140,36 @@
 <th>gain</th>
 </tr></thead>
 <tbody>
-<tr><td>classic</td><td>1,228</td><td>1,883</td><td><strong>+53.3%</strong></td></tr>
-<tr><td>compact</td><td>1,232</td><td>2,054</td><td><strong>+66.7%</strong></td></tr>
+<tr><td>eight programs</td><td>1,228</td><td>1,883</td><td><strong>+53.3%</strong></td></tr>
+<tr><td>five programs</td><td>1,232</td><td>2,054</td><td><strong>+66.7%</strong></td></tr>
 </tbody></table></div>
 
-<p>Fewer, larger processes leave more headroom per pod before the machine saturates, so the second copy has more of the machine left to use. Eight processes on one box spend a share of it on being eight processes.</p>
+<p>Fewer, larger processes leave more headroom per pod before the machine saturates, so the second copy has more of the machine left to use. Eight programs on one box spend a share of it on being eight programs.</p>
 
-<h2>And some costs disappear rather than move</h2>
-
-<p>The one that surprised me. With logging on, the compact shape does not merely relocate the logging cost &mdash; it removes part of it. <strong>Four processes log a request once where eight logged it at every hop.</strong> A request that crossed three services left three sets of entry and exit lines; merged, it leaves one.</p>
+<p><strong>Some costs disappear rather than move.</strong> The one that was not expected. With logging on, the five-program shape does not merely relocate the logging cost &mdash; it removes part of it. <strong>Five programs log a request once where eight logged it at every hop.</strong> A request that crossed three services left three sets of entry and exit lines; merged, it leaves one.</p>
 
 <p>Tracing and metrics do not shrink the same way &mdash; they are per request and per span, and the request count did not change. But the log volume is a function of how many programs the request walked through, which is a packaging property, not a design one.</p>
 
-<p>For context on why that matters at all: on the cloud cluster, <strong>logging is 88% of the observability bill</strong> &mdash; and 79% in the classic shape measured earlier. The pillar that dominates the cost is the one the composition shrinks.</p>
+<p>For context on why that matters at all: on the cloud cluster, <strong>logging is 88% of the observability bill</strong> &mdash; and 79% in the eight-program shape measured earlier. The pillar that dominates the cost is the one the composition shrinks.</p>
 
 <hr>
 
-<h2>Where this does not generalise, and I would rather say it than have it found</h2>
+<h2>What makes it possible</h2>
 
-<p><strong>My services fold because they were never separate contexts.</strong> They speak one language about one data model and share a kernel of common code. They are a functional partition of <em>one</em> domain &mdash; which is exactly why they can be merged, and exactly why a team whose services are genuinely different domains, with different vocabularies and different owners, cannot do what this article describes. For them the process boundary is carrying an organizational boundary as well, and that is a real job the network hop is doing.</p>
+<p>In Esquire, each service is a set of parts and a program, written as two separate things, and the folded process is a third program that hosts the parts it wants. Nothing was copied, and nothing was rewritten.</p>
+
+<p>Four properties, and none of them is specific to a language or a framework.</p>
+
+<ul>
+<li><strong>A service has two entry points.</strong> One starts it as a program. The other hands its parts to a host process. The second one is what folding uses, and most stacks already have a way to express it.</li>
+<li><strong>Process-level resources belong to the host.</strong> One audit sink, one role store, one lifecycle for the messaging legs. A service asks for them; it does not create them. Two services that each create their own cannot share a process.</li>
+<li><strong>Services address each other by channel name, not by address.</strong> The transport behind the name is a deployment choice: a broker when the two ends are apart, an in-process queue when they are together. Neither side's code changes.</li>
+<li><strong>A host can take part of a service.</strong> When it needs one capability and not that service's background work, it takes the capability and leaves the rest unstarted.</li>
+</ul>
+
+<h2>What holds beyond one system</h2>
+
+<p><strong>These services fold because they were never separate contexts.</strong> They speak one language about one data model and share a kernel of common code. They are a functional partition of <em>one</em> domain &mdash; which is exactly why they can be merged, and exactly why services that are genuinely different domains, with different vocabularies and different owners, cannot be. For them the process boundary is carrying an organizational boundary as well, and that is a real job the network hop is doing.</p>
 
 <p>So this is not "microservices were a mistake". It is narrower: <strong>if your services are one system split by function, the split into processes is a deployment decision and should be treated as one.</strong> A great many systems that call themselves microservices are exactly that, which is why the migration stories keep being written.</p>
 
@@ -127,23 +177,46 @@
 
 <ul>
 <li><strong>Independent scaling.</strong> A merged process scales as one thing. If one part inside it is the hot one, you carry the others along with it.</li>
-<li><strong>Independent deploy.</strong> Same reason. And a shared kernel makes it worse: in one recent release, adding a single method to the messaging module forced <strong>every service image to be rebuilt</strong>, because each image bakes its own copy of that jar. That is a measured cost, not a theoretical one, and it is the classic warning about shared kernels arriving on schedule.</li>
-<li><strong>Blast radius.</strong> Four processes means a failure takes more with it than one of eight would.</li>
+<li><strong>Independent deploy.</strong> Same reason. A shared kernel makes it worse: one method added to a shared module can force every image to be rebuilt, because each image carries its own copy.</li>
+<li><strong>Blast radius.</strong> Fewer programs means a failure takes more with it.</li>
+<li><strong>Statelessness, where you had it.</strong> A thin front door that absorbs a cache is no longer thin or stateless: it warms up before it serves, and every copy carries its own state.</li>
 </ul>
 
 <p>Those are real, and for some systems they are decisive. The argument is not that they never matter. It is that they are <strong>deployment trade-offs</strong>, and you should get to make them per environment rather than have them fixed in the architecture &mdash; which is precisely what happens when the two decisions are one decision.</p>
 
-<hr>
-
-<h2>What it looks like when they are separated</h2>
-
-<p>The four-process shape runs the small cloud demo on a single modest instance, because that is what fits there. The eight-process shape runs where the traffic pays for it. The code is identical. Nobody migrated anything, and no branch exists for "the small version".</p>
-
-<p>That is the actual claim, and it is smaller and more useful than "monoliths are back":</p>
-
-<blockquote><p><strong>Decompose because your design needs seams. Choose the process count because your deployment needs a shape. They are two decisions, and they should stay two.</strong></p></blockquote>
+<p>The same code can run folded in one environment and unfolded in another. Nothing is migrated, and no branch exists for "the small version".</p>
 
 <p>Design your seams as carefully as microservice advocates say you should. Then package them as loosely as a monolith advocate would. The reason those two positions have been fighting for a decade is that everybody kept assuming you could only have one.</p>
+
+<p>Decomposition and aggregation are one method with two steps. You split by design, because that is where the seams belong. Then you aggregate by deployment, because that is where efficiency is. The second step has rules of its own.</p>
+
+<h2>Decoupling, and then aggregation</h2>
+
+<p>Group by task before you look at anything else. A service exists to do a job in the system: answer the user's request quickly, work with entities, carry a business domain, keep a durable record. Services that share a job belong in one block. Services with different jobs do not, however conveniently they would fold.</p>
+
+<p>Then draw the system as a schematic. Every service is a block, every channel between them is a wire, and the messaging bus keeps the drawing readable. Draw it at the replica count you intend to run, not at one copy each. What the code does inside a block does not matter here; this step is about connection points.</p>
+
+<ol>
+<li><strong>A different runtime ends the question.</strong> Two blocks that do not run on the same runtime cannot share a process, whatever their tasks have in common. Check that first and save the rest of the work.</li>
+<li><strong>Within one task, merge blocks to remove wires.</strong> Two blocks joined by a wire that carries only their own traffic: merge them and the wire is gone.</li>
+<li><strong>Follow the wires to the third block.</strong> Two blocks that both wire to the same third one are one candidate, not two. Merging all three removes two wires at once.</li>
+<li><strong>Redundancy belongs to the task.</strong> Each block is replicated for the job it does, and merging two tasks welds their scaling together. That is the cost that is easy to miss: after the merge you cannot give one of them a second copy without giving it to the other.</li>
+<li><strong>Leave the wires that are doing a job.</strong> A wire that carries durability, separates an owner, or feeds a store with a different shape is not waste.</li>
+</ol>
+
+<p>The result is a compromise, and it should be: the fewest blocks whose remaining wires all earn their place.</p>
+
+<p><strong>Decompose by design. Aggregate for efficiency.</strong></p>
+
+<hr>
+
+<p><strong>References</strong></p>
+
+<p class="reference" id="ref1">[1] James Lewis and Martin Fowler, <a href="https://martinfowler.com/articles/microservices.html"><em>Microservices</em></a>, 25 March 2014 &mdash; the article that named the style and defined it by how it is deployed.</p>
+
+<p class="reference" id="ref2">[2] Sanjay Ghemawat, Robert Grandl, Srdjan Petrovic, Michael Whittaker, Parveen Patel, Ivan Posva and Amin Vahdat (Google), <a href="https://dl.acm.org/doi/10.1145/3593856.3595909"><em>Towards Modern Development of Cloud Applications</em></a>, HotOS '23, June 2023 &mdash; microservices conflate logical boundaries with physical ones.</p>
+
+<p class="reference" id="ref3">[3] Adam Gluck, <a href="https://www.uber.com/en-US/blog/microservice-architecture/"><em>Introducing Domain-Oriented Microservice Architecture</em></a>, Uber, 23 July 2020 &mdash; grouping services into domains at around 2,200 microservices.</p>
 
 <hr>
 
