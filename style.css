@@ -184,10 +184,10 @@ table.prose {
 th {
     white-space: normal;
     overflow-wrap: break-word;
-    max-width: 7rem;
+    max-width: 10rem;
 }
 
-tbody td:first-child {
+table:not(.prose) tbody td:first-child {
     white-space: normal;
     overflow-wrap: break-word;
     max-width: 9rem;
@@ -203,7 +203,6 @@ th, td {
 th {
     font-weight: 600;
     border-bottom: 2px solid var(--rule);
-    white-space: nowrap;
 }
 
 figure {
@@ -284,5 +283,37 @@ footer .colophon { margin-top: 0.35rem; color: var(--ink-soft); font-size: 0.8re
 @media (max-width: 34rem) {
     html { font-size: 16px; }
     h1 { font-size: 1.7rem; }
-    table { font-size: 0.82rem; }
+    table { font-size: 0.78rem; }
+
+    /* A five-column table has to be bought a phone's worth of width from somewhere. It is bought
+       from the two things in it that are identifiers rather than prose: inline code, and a
+       thirty-eight character repository name. Both may break mid-word; the name keeps a floor wide
+       enough for every other project in the column. Everything else wraps on its own spaces, so
+       "Spring Boot" stays whole and the last header reads as two lines.
+       The last column's right padding is dead space -- it sits between the cell and the table's own
+       edge -- so it is given back to the columns. */
+    th, td { padding-right: 0.3rem; }
+    th:last-child, td:last-child { padding-right: 0; }
+    td code { overflow-wrap: anywhere; }
+
+    /* Eight columns of measurements will not fit a phone with every header word whole -- and it is
+       the words that are too wide, never the numbers. So in a table that wide they hyphenate: a
+       break with a hyphen in it reads as typography, where a mid-word chop reads as breakage. The
+       last header is exempt, because "to-tal" costs more than the pixels it saves. */
+    table:has(th:nth-child(7)) {
+        -webkit-hyphens: auto;
+        hyphens: auto;
+    }
+
+    table:has(th:nth-child(7)) th:last-child {
+        -webkit-hyphens: manual;
+        hyphens: manual;
+    }
+
+    /* Only a five-column table is tight enough to need the concession below, and only that one: a
+       three-column table has prose in its first column, and a wider one needs the width elsewhere. */
+    table:has(th:nth-child(5)):not(:has(th:nth-child(6))) tbody td:first-child {
+        overflow-wrap: anywhere;
+        min-width: 3.3rem;
+    }
 }

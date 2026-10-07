@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>An environment for Domain-Driven Design</title>
-<meta name="description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
+<meta name="description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging, and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
 <meta name="author" content="Yuri Miroshnikov">
 <link rel="canonical" href="https://read.mir0n.pro/ddd-environment/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="An environment for Domain-Driven Design">
-<meta property="og:description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
+<meta property="og:description" content="DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging, and storage arrive built and joined -- against one constraint on your model: every entity has a position in the tree.">
 <meta property="og:url" content="https://read.mir0n.pro/ddd-environment/">
 <link rel="stylesheet" href="../style.css">
 </head>
@@ -28,7 +28,7 @@
 
 <hr>
 
-<h2>Back to theory: what DDD asks of you</h2>
+<h2>A bit of theory: what DDD asks of you</h2>
 
 <p>DDD's premise: in software with complex business rules, <strong>the hard part is not the technology. It is understanding the business.</strong> You build a model of the business with the people who know it. You name everything in one shared language. You write that model into the code. The names in the code are the names the business uses. When the business renames something, you rename it in the code that day.</p>
 
@@ -48,9 +48,9 @@
 
 <blockquote><p>The advice about everything that is not the core is blunt: <em>"Identify cohesive subdomains that are not the motivation for your project... give their continuing development lower priority than the core domain, and avoid assigning your core developers to the tasks... Also consider off-the-shelf solutions or published models for these generic subdomains"</em>&nbsp;<sup><a href="#ref2">[2]</a></sup>.</p></blockquote>
 
-<p>Count the subdomains in a business system: identity and sign-in, permissions, the audit trail, storage, messaging between services, metrics, logs, traces. That is what the first year of development is spent on.</p>
+<p>Count the subdomains in a business system: identity and sign-in, permissions, the audit trail, storage, messaging between services, metrics, logs, traces. Every one has to be built and running before the first business rule can.</p>
 
-<p>Esquire supplies those parts already built and connected: a) A Keycloak-backed identity flow that keeps the user directory in sync. b) Permissions resolved from the organization tree. c) An audit trail for every write. d) A messaging bus with pluggable transports. e) An observability stack that can be enabled or disabled. So, the motto — <em>business logic and nothing else is left to write</em> — in DDD language: <strong>once the generic subdomains are off-the-shelf, what is left is the distilled core, where the deep model and the supple design still have to be found.</strong></p>
+<p>Esquire supplies those parts already built and connected: a) a Keycloak-backed identity flow that keeps the user directory in sync, b) permissions resolved from the organization tree, c) an audit trail for every write, d) a messaging bus with pluggable transports, e) an observability stack that can be enabled or disabled. So, the motto — <em>business logic and nothing else is left to write</em> — in DDD language: <strong>once the generic subdomains are off-the-shelf, what is left is the distilled core, where the deep model and the supple design still have to be found.</strong></p>
 
 <h2>How an entity is declared</h2>
 
@@ -61,13 +61,13 @@
 <thead><tr>
 <th>An entity declares</th>
 <th>Which means</th>
-<th>DDD patterns&nbsp;<sup><a href="#ref1">[1]</a></sup>&nbsp;<sup><a href="#ref2">[2]</a></sup></th>
+<th>DDD analogue</th>
 </tr></thead>
 <tbody>
-<tr><td>its <strong>data</strong></td><td>the fields it holds, per kind (the entity's type)</td><td>Entities</td></tr>
+<tr><td>its <strong>data</strong></td><td>the fields it holds, per kind (the entity's type)</td><td>Entities&nbsp;<sup><a href="#ref1">[1]</a></sup>&nbsp;<sup><a href="#ref2">[2]</a></sup></td></tr>
 <tr><td>its <strong>permissions</strong></td><td>who may see it, who may change it, who may change it only on their own record</td><td>—</td></tr>
-<tr><td>its <strong>behavior</strong></td><td>which commands it accepts, and which handler runs for each event</td><td>Domain Events</td></tr>
-<tr><td>its <strong>validation</strong></td><td>what a value must satisfy — required, range, allowed values</td><td>Specification</td></tr>
+<tr><td>its <strong>behavior</strong></td><td>which commands it accepts, and which handler runs for each event</td><td>Domain Events&nbsp;<sup><a href="#ref2">[2]</a></sup></td></tr>
+<tr><td>its <strong>validation</strong></td><td>what a value must satisfy — required, range, allowed values</td><td>Specification&nbsp;<sup><a href="#ref1">[1]</a></sup></td></tr>
 <tr><td>its <strong>look and feel</strong></td><td>the tab it appears on, its order, its label, its hint, and how the value is rendered</td><td>—</td></tr>
 </tbody></table></div>
 
@@ -81,7 +81,7 @@
 
 <p>A model change is one edit. Add a field, drop one, relabel it, widen its values, tighten its rule — the server, the API, and the screen follow. The server and the frontend speak the same "ubiquitous" language.</p>
 
-<p><strong>2) The rich-versus-anemic coin lands on its edge.</strong> Fowler&nbsp;<sup><a href="#ref3">[3]</a></sup> describes the two models: a rich one puts the rules on the objects; an anemic one, in services. The edge of the coin: the dictionary is different. It is metadata, a description of the entity's behavior, stated once, where the server and the frontend both read and follow.</p>
+<p><strong>2) The rich-versus-anemic coin lands on its edge.</strong> Fowler&nbsp;<sup><a href="#ref3">[3]</a></sup> describes the two models: a rich one puts the rules on the objects; an anemic one, in services. The dictionary is neither: it is metadata, the rules stated once, and the server and the frontend both read them from it.</p>
 
 <h2>The visibility constraint</h2>
 
@@ -173,7 +173,7 @@
 
 <p><strong>References</strong></p>
 
-<p class="reference" id="ref1">[1] Eric Evans, <a href="https://www.informit.com/store/domain-driven-design-tackling-complexity-in-the-heart-9780321125217"><em>Domain-Driven Design: Tackling Complexity in the Heart of Software</em></a>, Addison-Wesley, 2003 — chapter 9, the Specification pattern.</p>
+<p class="reference" id="ref1">[1] Eric Evans, <a href="https://www.informit.com/store/domain-driven-design-tackling-complexity-in-the-heart-9780321125217"><em>Domain-Driven Design: Tackling Complexity in the Heart of Software</em></a>, Addison-Wesley, 2003 — the Specification pattern and the building blocks.</p>
 
 <p class="reference" id="ref2">[2] Eric Evans, <a href="https://www.domainlanguage.com/ddd/reference/"><em>Domain-Driven Design Reference</em></a>, 2015 — definitions and summaries of the DDD patterns.</p>
 

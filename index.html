@@ -18,7 +18,7 @@
 <h1 class="wordmark">read.mir0n.pro</h1>
 <p>I am Yuri Miroshnikov,<br> founder and sole developer of <a href="https://esquire.mir0n.pro"><strong>Esquire Application Frameworks</strong></a> for backoffice systems. It is running, and every article here links into it.</p>
 
-<blockquote><p>The entity model behind it has been in production in a foreign-exchange trading business for twenty-five years. I wrote it from scratch in 2000, and it grew from two tiers and five hundred accounts into a globally distributed platform carrying millions. The storage engine was replaced, the architecture generation twice, the regulatory surface changed, the company changed its brand. The way entities are structured and positioned did not change. The screens were server-defined throughout, from a dictionary: first in PowerBuilder PFC, then MFC, then DevExpress, now Angular. Esquire is a new implementation of that model: the twenty-five years belong to the idea, not to this code.</p></blockquote>
+<blockquote><p>The entity model behind it has been in production in a foreign-exchange trading business for twenty-five years. I wrote it from scratch in 2000, and it grew from two tiers and five hundred accounts into a globally distributed platform carrying millions. The storage engine was replaced, the architecture generation replaced twice, the regulatory surface changed, the company changed its brand. The way entities are structured and positioned did not change. The screens were server-defined throughout, from a dictionary: first in PowerBuilder PFC, then MFC, then DevExpress, now Angular. Esquire is a new implementation of that model: the twenty-five years belong to the idea, not to this code.</p></blockquote>
 
 <p>On this page I write about the parts of the Esquire work that are arguments rather than features: what I found reading other people's code, what the measurements said, and where my own system does not do what I say it does.</p>
 <ul class="index">
@@ -28,11 +28,11 @@
 </li>
 <li>
 <h2><a href="decomposition/">Decomposition is not microservices</a></h2>
-<p>Two decisions got welded together. Where the seams are is design; how many processes you ship is deployment. Folding eight processes into five changed nothing for most requests &mdash; and the two that stopped crossing the network gained 54% and 82%.</p>
+<p>Two decisions got welded together. Where the seams are is design; how many programs you ship is deployment. Folding eight programs into five changed nothing for most requests &mdash; and the two that stopped crossing the network gained 54% and 82%.</p>
 </li>
 <li>
 <h2><a href="ddd-environment/">An environment for Domain-Driven Design</a></h2>
-<p>DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging and storage arrive built and joined &mdash; against one constraint on your model: every entity has a position in the tree.</p>
+<p>DDD tells you what to build, not where to build it. Identity, permissions, audit, messaging, and storage arrive built and joined &mdash; against one constraint on your model: every entity has a position in the tree.</p>
 </li>
 <li>
 <h2>Server-defined UI is not a legend (draft)</h2>
